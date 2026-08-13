@@ -25,57 +25,109 @@ export default function Transactions({
   const [type, setType] = useState("expense");
   const [category, setCategory] = useState("Shopping");
   const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
-  function addTransaction() {
-    const cleanMerchant = merchant.trim();
-    const numericAmount = Number(amount);
+  const filteredTransactions = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-    if (!cleanMerchant) {
-      alert("Please enter a merchant.");
-      return;
+    if (!query) {
+      return transactions;
     }
 
-    if (!amount || !Number.isFinite(numericAmount) || numericAmount <= 0) {
-      alert("Please enter a valid amount.");
-      return;
-    }
+    return transactions.filter((transaction) => {
+      return (
+        transaction.merchant?.toLowerCase().includes(query) ||
+        transaction.category?.toLowerCase().includes(query) ||
+        transaction.type?.toLowerCase().includes(query)
+      );
+    });
+  }, [transactions, search]);
 
-    const duplicate = transactions.some(
-      (transaction) =>
-        String(transaction.merchant || "").toLowerCase() ===
-          cleanMerchant.toLowerCase() &&
-        Number(transaction.amount) === numericAmount &&
-        transaction.type === type &&
-        transaction.category === category
-    );
-
-    if (duplicate) {
-      alert("A similar transaction already exists.");
-      return;
-    }
-
-    const newTransaction = {
-      id:
-        typeof crypto !== "undefined" &&
-        typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random()}`,
-      merchant: cleanMerchant,
-      amount: numericAmount,
-      type,
-      category,
-      date: new Date().toISOString().slice(0, 10),
-    };
-
-    setTransactions((current) => [
-      newTransaction,
-      ...current,
-    ]);
-
+  function resetForm() {
     setMerchant("");
     setAmount("");
     setType("expense");
     setCategory("Shopping");
+    setEditingId(null);
+  }
+
+  function saveTransaction() {
+    const cleanMerchant = merchant.trim();
+    const numericAmount = Number(amount);
+
+    if (!cleanMerchant) {
+      alert("Please enter a merchant name.");
+      return;
+    }
+
+    if (!amount || numericAmount <= 0) {
+      alert("Please enter a valid amount.");
+      return;
+    }
+
+    const duplicate = transactions.find((transaction) => {
+      if (transaction.id === editingId) {
+        return false;
+      }
+
+      return (
+        transaction.merchant?.trim().toLowerCase() ===
+          cleanMerchant.toLowerCase() &&
+        Number(transaction.amount) === numericAmount &&
+        transaction.type === type &&
+        transaction.category === category
+      );
+    });
+
+    if (duplicate) {
+      alert("Duplicate transaction detected.");
+      return;
+    }
+
+    if (editingId) {
+      setTransactions(
+        transactions.map((transaction) =>
+          transaction.id === editingId
+            ? {
+                ...transaction,
+                merchant: cleanMerchant,
+                amount: numericAmount,
+                type,
+                category,
+              }
+            : transaction
+        )
+      );
+    } else {
+      const newTransaction = {
+        id: crypto.randomUUID(),
+        merchant: cleanMerchant,
+        amount: numericAmount,
+        type,
+        category,
+        date: new Date().toISOString().slice(0, 10),
+      };
+
+      setTransactions([
+        newTransaction,
+        ...transactions,
+      ]);
+    }
+
+    resetForm();
+  }
+
+  function editTransaction(transaction) {
+    setEditingId(transaction.id);
+    setMerchant(transaction.merchant || "");
+    setAmount(String(transaction.amount || ""));
+    setType(transaction.type || "expense");
+    setCategory(transaction.category || "Other");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
   function deleteTransaction(id) {
@@ -87,44 +139,23 @@ export default function Transactions({
       return;
     }
 
-    setTransactions((current) =>
-      current.filter((transaction) => transaction.id !== id)
+    setTransactions(
+      transactions.filter(
+        (transaction) => transaction.id !== id
+      )
     );
-  }
 
-  const filteredTransactions = useMemo(() => {
-    const searchText = search.trim().toLowerCase();
-
-    if (!searchText) {
-      return transactions;
+    if (editingId === id) {
+      resetForm();
     }
-
-    return transactions.filter((transaction) => {
-      const merchantName = String(
-        transaction.merchant || ""
-      ).toLowerCase();
-
-      const transactionCategory = String(
-        transaction.category || ""
-      ).toLowerCase();
-
-      const transactionType = String(
-        transaction.type || ""
-      ).toLowerCase();
-
-      return (
-        merchantName.includes(searchText) ||
-        transactionCategory.includes(searchText) ||
-        transactionType.includes(searchText)
-      );
-    });
-  }, [transactions, search]);
+  }
 
   return (
     <div className="pageStack">
       <section className="heroSection">
         <div>
           <h1>Transactions</h1>
+
           <p>
             Record and manage your income and expenses.
           </p>
@@ -134,22 +165,25 @@ export default function Transactions({
       <section className="panel">
         <div className="panelHeader">
           <div>
-            <h2>Add Transaction</h2>
+            <h2>
+              {editingId
+                ? "Edit Transaction"
+                : "Add Transaction"}
+            </h2>
+
             <p>
-              Record an income or expense to keep your
-              financial overview accurate.
+              {editingId
+                ? "Update the selected transaction."
+                : "Add your income or expenses to Ledgerly."}
             </p>
           </div>
         </div>
 
         <div className="formGrid">
           <div className="formField">
-            <label htmlFor="merchant">
-              Merchant
-            </label>
+            <label>Merchant</label>
 
             <input
-              id="merchant"
               type="text"
               placeholder="Amazon, Swiggy, Salary..."
               value={merchant}
@@ -160,16 +194,13 @@ export default function Transactions({
           </div>
 
           <div className="formField">
-            <label htmlFor="amount">
-              Amount
-            </label>
+            <label>Amount</label>
 
             <input
-              id="amount"
               type="number"
               min="0"
               step="0.01"
-              placeholder="0"
+              placeholder="Enter amount"
               value={amount}
               onChange={(event) =>
                 setAmount(event.target.value)
@@ -178,34 +209,23 @@ export default function Transactions({
           </div>
 
           <div className="formField">
-            <label htmlFor="transactionType">
-              Type
-            </label>
+            <label>Type</label>
 
             <select
-              id="transactionType"
               value={type}
               onChange={(event) =>
                 setType(event.target.value)
               }
             >
-              <option value="expense">
-                Expense
-              </option>
-
-              <option value="income">
-                Income
-              </option>
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
             </select>
           </div>
 
           <div className="formField">
-            <label htmlFor="transactionCategory">
-              Category
-            </label>
+            <label>Category</label>
 
             <select
-              id="transactionCategory"
               value={category}
               onChange={(event) =>
                 setCategory(event.target.value)
@@ -221,32 +241,40 @@ export default function Transactions({
         </div>
 
         <div className="formActions">
-          <button
-            type="button"
-            onClick={addTransaction}
-          >
-            + Add Transaction
+          <button onClick={saveTransaction}>
+            {editingId
+              ? "Save Changes"
+              : "+ Add Transaction"}
           </button>
+
+          {editingId && (
+            <button
+              className="secondaryButton"
+              onClick={resetForm}
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </section>
 
       <section className="panel">
-        <div className="panelHeader transactionHistoryHeader">
+        <div className="panelHeader">
           <div>
             <h2>Transaction History</h2>
 
             <p>
-              {transactions.length}{" "}
+              {transactions.length} recorded{" "}
               {transactions.length === 1
                 ? "transaction"
-                : "transactions"}{" "}
-              recorded.
+                : "transactions"}
+              .
             </p>
           </div>
 
           <input
             className="searchInput"
-            type="search"
+            type="text"
             placeholder="Search transactions..."
             value={search}
             onChange={(event) =>
@@ -268,7 +296,7 @@ export default function Transactions({
             <p>
               {transactions.length === 0
                 ? "Add your first income or expense above."
-                : "Try a different merchant, category, or type."}
+                : "Try a different search term."}
             </p>
           </div>
         ) : (
@@ -281,7 +309,7 @@ export default function Transactions({
                   <th>Category</th>
                   <th>Type</th>
                   <th>Amount</th>
-                  <th>Action</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
 
@@ -289,61 +317,74 @@ export default function Transactions({
                 {filteredTransactions.map(
                   (transaction) => (
                     <tr key={transaction.id}>
-                      <td>
-                        {transaction.date || "-"}
-                      </td>
+                      <td>{transaction.date}</td>
 
                       <td>
                         <strong>
-                          {transaction.merchant || "Unknown"}
+                          {transaction.merchant}
                         </strong>
                       </td>
 
                       <td>
-                        {transaction.category || "Other"}
+                        {transaction.category}
                       </td>
 
                       <td>
                         <span
                           className={
-                            transaction.type === "income"
-                              ? "transactionType incomeType"
-                              : "transactionType expenseType"
+                            transaction.type ===
+                            "income"
+                              ? "transactionType income"
+                              : "transactionType expense"
                           }
                         >
-                          {transaction.type === "income"
-                            ? "Income"
-                            : "Expense"}
+                          {transaction.type}
                         </span>
                       </td>
 
-                      <td
-                        className={
-                          transaction.type === "income"
-                            ? "positive transactionAmount"
-                            : "transactionAmount"
-                        }
-                      >
-                        {transaction.type === "income"
-                          ? "+"
-                          : "-"}
-                        {formatCurrency(
-                          transaction.amount
-                        )}
+                      <td>
+                        <strong
+                          className={
+                            transaction.type ===
+                            "income"
+                              ? "positive"
+                              : "negative"
+                          }
+                        >
+                          {transaction.type ===
+                          "income"
+                            ? "+"
+                            : "-"}
+                          {formatCurrency(
+                            transaction.amount
+                          )}
+                        </strong>
                       </td>
 
                       <td>
-                        <button
-                          type="button"
-                          className="delete"
-                          onClick={() =>
-                            deleteTransaction(
-                              transaction.id
-                            )
-                          }
-                        >
-                          Delete
-                        </button>
+                        <div className="tableActions">
+                          <button
+                            className="secondaryButton"
+                            onClick={() =>
+                              editTransaction(
+                                transaction
+                              )
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            className="delete"
+                            onClick={() =>
+                              deleteTransaction(
+                                transaction.id
+                              )
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
