@@ -1,22 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 const categories = [
-  "Bills",
-  "Rent",
-  "Subscriptions",
+  "Housing",
+  "Utilities",
   "Groceries",
+  "Dining",
   "Transport",
   "Health",
   "Insurance",
-  "Investment",
+  "Entertainment",
+  "Subscriptions",
   "Salary",
   "Other",
 ];
 
 const frequencies = [
-  "Daily",
   "Weekly",
   "Monthly",
+  "Quarterly",
   "Yearly",
 ];
 
@@ -24,80 +25,43 @@ function formatCurrency(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
-function getNextDate(date, frequency) {
-  const next = new Date(date);
+function getInitialRecurring() {
+  try {
+    const saved = localStorage.getItem("ledgerly_recurring");
 
-  if (Number.isNaN(next.getTime())) {
-    return "";
+    if (!saved) {
+      return [];
+    }
+
+    const parsed = JSON.parse(saved);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
-
-  if (frequency === "Daily") {
-    next.setDate(next.getDate() + 1);
-  }
-
-  if (frequency === "Weekly") {
-    next.setDate(next.getDate() + 7);
-  }
-
-  if (frequency === "Monthly") {
-    next.setMonth(next.getMonth() + 1);
-  }
-
-  if (frequency === "Yearly") {
-    next.setFullYear(next.getFullYear() + 1);
-  }
-
-  return next.toISOString().slice(0, 10);
 }
 
-export default function Recurring({
-  recurringTransactions,
-  setRecurringTransactions,
-}) {
+export default function Recurring() {
+  const [recurring, setRecurring] = useState(getInitialRecurring);
+
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("expense");
-  const [category, setCategory] = useState("Bills");
+  const [category, setCategory] = useState("Utilities");
   const [frequency, setFrequency] = useState("Monthly");
-  const [nextDate, setNextDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [nextDate, setNextDate] = useState("");
   const [search, setSearch] = useState("");
-  const [editingId, setEditingId] = useState(null);
 
-  const items = Array.isArray(recurringTransactions)
-    ? recurringTransactions
-    : [];
+  function saveRecurring(items) {
+    setRecurring(items);
 
-  const filteredItems = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    if (!query) {
-      return items;
-    }
-
-    return items.filter((item) => {
-      return (
-        item.name?.toLowerCase().includes(query) ||
-        item.category?.toLowerCase().includes(query) ||
-        item.frequency?.toLowerCase().includes(query)
-      );
-    });
-  }, [items, search]);
-
-  function resetForm() {
-    setName("");
-    setAmount("");
-    setType("expense");
-    setCategory("Bills");
-    setFrequency("Monthly");
-    setNextDate(
-      new Date().toISOString().slice(0, 10)
+    localStorage.setItem(
+      "ledgerly_recurring",
+      JSON.stringify(items)
     );
-    setEditingId(null);
   }
 
-  function saveRecurring() {
+  function addRecurring() {
     const cleanName = name.trim();
     const numericAmount = Number(amount);
 
@@ -116,78 +80,55 @@ export default function Recurring({
       return;
     }
 
-    const duplicate = items.find((item) => {
-      if (item.id === editingId) {
-        return false;
-      }
-
-      return (
-        item.name?.trim().toLowerCase() ===
-          cleanName.toLowerCase() &&
+    const duplicate = recurring.some(
+      (item) =>
+        item.name.toLowerCase() === cleanName.toLowerCase() &&
         Number(item.amount) === numericAmount &&
-        item.type === type &&
-        item.frequency === frequency
-      );
-    });
+        item.type === type
+    );
 
     if (duplicate) {
-      alert("This recurring transaction already exists.");
+      alert("A similar recurring transaction already exists.");
       return;
     }
 
-    if (editingId) {
-      setRecurringTransactions(
-        items.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                name: cleanName,
-                amount: numericAmount,
-                type,
-                category,
-                frequency,
-                nextDate,
-              }
-            : item
-        )
-      );
-    } else {
-      const newItem = {
-        id: crypto.randomUUID(),
-        name: cleanName,
-        amount: numericAmount,
-        type,
-        category,
-        frequency,
-        nextDate,
-        active: true,
-      };
+    const newItem = {
+      id:
+        typeof crypto !== "undefined" &&
+        crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`,
+      name: cleanName,
+      amount: numericAmount,
+      type,
+      category,
+      frequency,
+      nextDate,
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
 
-      setRecurringTransactions([
-        newItem,
-        ...items,
-      ]);
-    }
+    saveRecurring([newItem, ...recurring]);
 
-    resetForm();
+    setName("");
+    setAmount("");
+    setType("expense");
+    setCategory("Utilities");
+    setFrequency("Monthly");
+    setNextDate("");
   }
 
-  function editRecurring(item) {
-    setEditingId(item.id);
-    setName(item.name || "");
-    setAmount(String(item.amount || ""));
-    setType(item.type || "expense");
-    setCategory(item.category || "Other");
-    setFrequency(item.frequency || "Monthly");
-    setNextDate(
-      item.nextDate ||
-        new Date().toISOString().slice(0, 10)
+  function toggleActive(id) {
+    const updated = recurring.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            active: !item.active,
+          }
+        : item
     );
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    saveRecurring(updated);
   }
 
   function deleteRecurring(id) {
@@ -199,49 +140,48 @@ export default function Recurring({
       return;
     }
 
-    setRecurringTransactions(
-      items.filter((item) => item.id !== id)
-    );
-
-    if (editingId === id) {
-      resetForm();
-    }
-  }
-
-  function toggleActive(id) {
-    setRecurringTransactions(
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              active: item.active === false,
-            }
-          : item
-      )
+    saveRecurring(
+      recurring.filter((item) => item.id !== id)
     );
   }
 
-  function moveToNextDate(item) {
-    const updatedDate = getNextDate(
-      item.nextDate,
-      item.frequency
-    );
+  const filteredRecurring = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-    if (!updatedDate) {
-      return;
+    if (!query) {
+      return recurring;
     }
 
-    setRecurringTransactions(
-      items.map((currentItem) =>
-        currentItem.id === item.id
-          ? {
-              ...currentItem,
-              nextDate: updatedDate,
-            }
-          : currentItem
-      )
-    );
-  }
+    return recurring.filter((item) => {
+      return (
+        item.name.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query) ||
+        item.frequency.toLowerCase().includes(query)
+      );
+    });
+  }, [recurring, search]);
+
+  const activeCount = recurring.filter(
+    (item) => item.active
+  ).length;
+
+  const monthlyExpense = recurring
+    .filter(
+      (item) =>
+        item.active &&
+        item.type === "expense" &&
+        item.frequency === "Monthly"
+    )
+    .reduce((total, item) => total + Number(item.amount), 0);
+
+  const monthlyIncome = recurring
+    .filter(
+      (item) =>
+        item.active &&
+        item.type === "income" &&
+        item.frequency === "Monthly"
+    )
+    .reduce((total, item) => total + Number(item.amount), 0);
 
   return (
     <div className="pageStack">
@@ -250,35 +190,96 @@ export default function Recurring({
           <h1>Recurring</h1>
 
           <p>
-            Manage recurring income, bills, and regular
-            financial commitments.
+            Track bills, subscriptions, salary, rent, and other
+            repeating financial activity.
           </p>
+        </div>
+      </section>
+
+      <section className="statGrid">
+        <div className="statCard">
+          <span className="statLabel">
+            Active Recurring
+          </span>
+
+          <strong className="statValue">
+            {activeCount}
+          </strong>
+
+          <span className="statHint">
+            Currently active items
+          </span>
+        </div>
+
+        <div className="statCard">
+          <span className="statLabel">
+            Monthly Expenses
+          </span>
+
+          <strong className="statValue negative">
+            {formatCurrency(monthlyExpense)}
+          </strong>
+
+          <span className="statHint">
+            From monthly recurring expenses
+          </span>
+        </div>
+
+        <div className="statCard">
+          <span className="statLabel">
+            Monthly Income
+          </span>
+
+          <strong className="statValue positive">
+            {formatCurrency(monthlyIncome)}
+          </strong>
+
+          <span className="statHint">
+            From monthly recurring income
+          </span>
+        </div>
+
+        <div className="statCard">
+          <span className="statLabel">
+            Monthly Net
+          </span>
+
+          <strong
+            className={
+              monthlyIncome - monthlyExpense >= 0
+                ? "statValue positive"
+                : "statValue negative"
+            }
+          >
+            {formatCurrency(
+              monthlyIncome - monthlyExpense
+            )}
+          </strong>
+
+          <span className="statHint">
+            Income minus recurring expenses
+          </span>
         </div>
       </section>
 
       <section className="panel">
         <div className="panelHeader">
           <div>
-            <h2>
-              {editingId
-                ? "Edit Recurring Transaction"
-                : "Add Recurring Transaction"}
-            </h2>
+            <h2>Add Recurring Transaction</h2>
 
             <p>
-              Track payments or income that repeat
-              automatically.
+              Create a repeating income or expense.
             </p>
           </div>
         </div>
 
         <div className="formGrid">
-          <div className="formField">
+          <div className="formGroup">
             <label>Name</label>
 
             <input
               type="text"
-              placeholder="Rent, Salary, SIP..."
+              placeholder="Rent, Netflix, Salary..."
               value={name}
               onChange={(event) =>
                 setName(event.target.value)
@@ -286,14 +287,14 @@ export default function Recurring({
             />
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Amount</label>
 
             <input
               type="number"
               min="0"
               step="0.01"
-              placeholder="Enter amount"
+              placeholder="Amount"
               value={amount}
               onChange={(event) =>
                 setAmount(event.target.value)
@@ -301,7 +302,7 @@ export default function Recurring({
             />
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Type</label>
 
             <select
@@ -310,12 +311,17 @@ export default function Recurring({
                 setType(event.target.value)
               }
             >
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
+              <option value="expense">
+                Expense
+              </option>
+
+              <option value="income">
+                Income
+              </option>
             </select>
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Category</label>
 
             <select
@@ -332,7 +338,7 @@ export default function Recurring({
             </select>
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Frequency</label>
 
             <select
@@ -349,7 +355,7 @@ export default function Recurring({
             </select>
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Next Date</label>
 
             <input
@@ -362,22 +368,9 @@ export default function Recurring({
           </div>
         </div>
 
-        <div className="formActions">
-          <button onClick={saveRecurring}>
-            {editingId
-              ? "Save Changes"
-              : "+ Add Recurring"}
-          </button>
-
-          {editingId && (
-            <button
-              className="secondaryButton"
-              onClick={resetForm}
-            >
-              Cancel
-            </button>
-          )}
-        </div>
+        <button onClick={addRecurring}>
+          + Add Recurring
+        </button>
       </section>
 
       <section className="panel">
@@ -386,18 +379,14 @@ export default function Recurring({
             <h2>Recurring Transactions</h2>
 
             <p>
-              {items.length} recurring{" "}
-              {items.length === 1
-                ? "item"
-                : "items"}{" "}
-              configured.
+              Your saved recurring financial activity.
             </p>
           </div>
 
           <input
             className="searchInput"
             type="text"
-            placeholder="Search recurring..."
+            placeholder="Search..."
             value={search}
             onChange={(event) =>
               setSearch(event.target.value)
@@ -405,116 +394,84 @@ export default function Recurring({
           />
         </div>
 
-        {filteredItems.length === 0 ? (
+        {filteredRecurring.length === 0 ? (
           <div className="emptyState">
             <div className="emptyIcon">↻</div>
 
             <h3>
-              {items.length === 0
-                ? "No recurring transactions"
-                : "No matching recurring transactions"}
+              {recurring.length === 0
+                ? "No recurring transactions yet"
+                : "No matching transactions"}
             </h3>
 
             <p>
-              {items.length === 0
-                ? "Add a recurring payment or income above."
+              {recurring.length === 0
+                ? "Add your first recurring income or expense above."
                 : "Try a different search term."}
             </p>
           </div>
         ) : (
-          <div className="tableWrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Category</th>
-                  <th>Frequency</th>
-                  <th>Next Date</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+          <div className="transactionList">
+            {filteredRecurring.map((item) => (
+              <div
+                className="transactionListItem"
+                key={item.id}
+              >
+                <div>
+                  <strong>{item.name}</strong>
 
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <strong>{item.name}</strong>
-                    </td>
+                  <span>
+                    {item.category} · {item.frequency} ·
+                    Next: {item.nextDate}
+                  </span>
+                </div>
 
-                    <td>{item.category}</td>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                  }}
+                >
+                  <strong
+                    className={
+                      item.type === "income"
+                        ? "positive"
+                        : ""
+                    }
+                  >
+                    {item.type === "income"
+                      ? "+"
+                      : "-"}
+                    {formatCurrency(item.amount)}
+                  </strong>
 
-                    <td>{item.frequency}</td>
+                  <button
+                    className={
+                      item.active
+                        ? "secondaryButton"
+                        : "primaryButton"
+                    }
+                    onClick={() =>
+                      toggleActive(item.id)
+                    }
+                  >
+                    {item.active
+                      ? "Active"
+                      : "Inactive"}
+                  </button>
 
-                    <td>{item.nextDate}</td>
-
-                    <td>
-                      <strong
-                        className={
-                          item.type === "income"
-                            ? "positive"
-                            : "negative"
-                        }
-                      >
-                        {item.type === "income"
-                          ? "+"
-                          : "-"}
-                        {formatCurrency(item.amount)}
-                      </strong>
-                    </td>
-
-                    <td>
-                      <button
-                        className={
-                          item.active === false
-                            ? "secondaryButton"
-                            : "statusButton"
-                        }
-                        onClick={() =>
-                          toggleActive(item.id)
-                        }
-                      >
-                        {item.active === false
-                          ? "Paused"
-                          : "Active"}
-                      </button>
-                    </td>
-
-                    <td>
-                      <div className="tableActions">
-                        <button
-                          className="secondaryButton"
-                          onClick={() =>
-                            editRecurring(item)
-                          }
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          className="secondaryButton"
-                          onClick={() =>
-                            moveToNextDate(item)
-                          }
-                        >
-                          Next
-                        </button>
-
-                        <button
-                          className="delete"
-                          onClick={() =>
-                            deleteRecurring(item.id)
-                          }
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  <button
+                    className="delete"
+                    onClick={() =>
+                      deleteRecurring(item.id)
+                    }
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
