@@ -10,13 +10,24 @@ export default function Dashboard({
   return (
     <>
       <div className="cards">
-        <SummaryCard title="Income" value={`₹${income}`} color="#16A34A" />
+        <SummaryCard
+          title="Income"
+          value={`₹${income.toLocaleString()}`}
+          color="#16A34A"
+        />
+
         <SummaryCard
           title="Spending"
-          value={`₹${spending}`}
+          value={`₹${spending.toLocaleString()}`}
           color="#EA580C"
         />
-        <SummaryCard title="Savings" value={`${savings}%`} color="#2563EB" />
+
+        <SummaryCard
+          title="Savings"
+          value={`${savings}%`}
+          color="#2563EB"
+        />
+
         <SummaryCard
           title="Net Worth"
           value={`₹${netWorth.toLocaleString()}`}
@@ -41,7 +52,8 @@ export default function Dashboard({
               </div>
 
               <div className={t.type === "income" ? "income" : "expense"}>
-                {t.type === "income" ? "+" : "-"}₹{t.amount}
+                {t.type === "income" ? "+" : "-"}₹
+                {t.amount.toLocaleString()}
               </div>
             </div>
           ))
