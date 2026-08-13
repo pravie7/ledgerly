@@ -1,95 +1,96 @@
-const navigation = [
+const navigationItems = [
   {
-    name: "Dashboard",
+    label: "Dashboard",
     icon: "⌂",
   },
   {
-    name: "Transactions",
+    label: "Transactions",
     icon: "↕",
   },
   {
-    name: "Recurring",
+    label: "Recurring",
     icon: "↻",
   },
   {
-    name: "Subscriptions",
+    label: "Subscriptions",
     icon: "◉",
   },
   {
-    name: "Budgets",
+    label: "Budgets",
     icon: "▣",
   },
   {
-    name: "Goals",
+    label: "Goals",
     icon: "◎",
   },
   {
-    name: "Documents",
+    label: "Documents",
     icon: "▤",
   },
   {
-    name: "Rules",
+    label: "Rules",
     icon: "◇",
   },
   {
-    name: "Settings",
+    label: "Settings",
     icon: "⚙",
   },
 ];
 
 export default function Sidebar({ page, setPage }) {
   return (
-    <>
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brandMark">L</div>
+    <aside className="sidebar">
+      <div className="sidebarBrand">
+        <div className="brandMark">L</div>
 
-          <div>
-            <div className="brandName">Ledgerly</div>
-            <div className="brandSubtitle">
-              Personal Finance
-            </div>
-          </div>
+        <div>
+          <strong className="brandName">
+            Ledgerly
+          </strong>
+
+          <span className="brandSubtitle">
+            Personal Finance
+          </span>
         </div>
+      </div>
 
-        <nav className="desktopNavigation">
-          {navigation.map((item) => (
+      <nav className="sidebarNav">
+        {navigationItems.map((item) => {
+          const active = page === item.label;
+
+          return (
             <button
-              key={item.name}
+              key={item.label}
+              type="button"
               className={
-                page === item.name
+                active
                   ? "navItem active"
                   : "navItem"
               }
-              onClick={() => setPage(item.name)}
+              onClick={() => setPage(item.label)}
+              aria-current={
+                active ? "page" : undefined
+              }
             >
-              <span className="navIcon">{item.icon}</span>
-              <span>{item.name}</span>
+              <span className="navIcon">
+                {item.icon}
+              </span>
+
+              <span className="navLabel">
+                {item.label}
+              </span>
             </button>
-          ))}
-        </nav>
-
-        <div className="sidebarFooter">
-          <span>Private Personal Finance</span>
-        </div>
-      </aside>
-
-      <nav className="mobileNavigation">
-        {navigation.map((item) => (
-          <button
-            key={item.name}
-            className={
-              page === item.name
-                ? "mobileNavItem active"
-                : "mobileNavItem"
-            }
-            onClick={() => setPage(item.name)}
-          >
-            <span>{item.icon}</span>
-            <small>{item.name}</small>
-          </button>
-        ))}
+          );
+        })}
       </nav>
-    </>
+
+      <div className="sidebarFooter">
+        <span className="sidebarFooterDot" />
+
+        <span>
+          Private Personal Finance
+        </span>
+      </div>
+    </aside>
   );
 }
