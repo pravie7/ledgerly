@@ -1,8 +1,18 @@
-export default function Header({ title }) {
+export default function Header({ page }) {
   return (
-    <div className="header">
-      <h1>{title}</h1>
-      <p>Private Personal Finance Dashboard</p>
-    </div>
+    <header className="topBar">
+      <div>
+        <div className="topBarTitle">{page}</div>
+
+        <div className="topBarSubtitle">
+          Private Personal Finance Dashboard
+        </div>
+      </div>
+
+      <div className="topBarStatus">
+        <span className="statusDot"></span>
+        Local
+      </div>
+    </header>
   );
 }
