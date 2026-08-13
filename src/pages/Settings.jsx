@@ -1,24 +1,40 @@
-export default function Settings() {
+export default function Settings({
+  assets,
+  liabilities,
+  setAssets,
+  setLiabilities,
+}) {
   return (
     <div className="panel">
-      <h2>Settings</h2>
+      <h2>Financial Profile</h2>
 
-      <div className="setting">
-        <label>Currency</label>
-        <select>
-          <option>INR (₹)</option>
-        </select>
-      </div>
+      <label>Total Assets</label>
+      <input
+        type="number"
+        value={assets}
+        onChange={(e) => setAssets(Number(e.target.value))}
+      />
 
-      <div className="setting">
-        <label>Theme</label>
-        <select>
-          <option>Light</option>
-          <option>Dark</option>
-        </select>
-      </div>
+      <label>Total Liabilities</label>
+      <input
+        type="number"
+        value={liabilities}
+        onChange={(e) => setLiabilities(Number(e.target.value))}
+      />
 
-      <button>Export Backup</button>
+      <h3>
+        Net Worth: ₹{(assets - liabilities).toLocaleString()}
+      </h3>
+
+      <button
+        className="danger"
+        onClick={() => {
+          localStorage.clear();
+          window.location.reload();
+        }}
+      >
+        Reset All Data
+      </button>
     </div>
   );
 }
