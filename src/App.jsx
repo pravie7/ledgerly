@@ -1,276 +1,262 @@
 import { useEffect, useMemo, useState } from "react";
-import "./index.css";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
+import Recurring from "./pages/Recurring";
+import Subscriptions from "./pages/Subscriptions";
 import Budgets from "./pages/Budgets";
 import Goals from "./pages/Goals";
+import Documents from "./pages/Documents";
+import Rules from "./pages/Rules";
 import Settings from "./pages/Settings";
+
+const STORAGE_KEY = "ledgerly_state";
+
+const initialState = {
+  transactions: [],
+  budgets: [],
+  goals: [],
+  recurring: [],
+  subscriptions: [],
+  documents: [],
+  rules: [],
+  tags: [],
+  categories: [
+    "Housing",
+    "Groceries",
+    "Shopping",
+    "Dining",
+    "Transportation",
+    "Utilities",
+    "Subscriptions",
+    "Insurance",
+    "Health",
+    "Entertainment",
+    "Income",
+    "Needs review",
+    "Other",
+  ],
+  accounts: [],
+  assets: 0,
+  liabilities: 0,
+  netWorthConfigured: false,
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    if (!saved) {
+      return initialState;
+    }
+
+    return {
+      ...initialState,
+      ...JSON.parse(saved),
+    };
+  } catch {
+    return initialState;
+  }
+}
 
 export default function App() {
   const [page, setPage] = useState("Dashboard");
 
-  // =========================================================
-  // TRANSACTIONS
-  // =========================================================
+  const [state, setState] = useState(loadState);
 
-  const [transactions, setTransactions] = useState(() => {
-    try {
-      const saved = localStorage.getItem("ledgerly_transactions");
-
-      if (!saved) {
-        return [];
-      }
-
-      const parsed = JSON.parse(saved);
-
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.error("Failed to load transactions:", error);
-      return [];
-    }
-  });
-
-  // =========================================================
-  // ASSETS
-  // =========================================================
-
-  const [assets, setAssets] = useState(() => {
-    try {
-      return Number(
-        localStorage.getItem("ledgerly_assets") || 0
-      );
-    } catch {
-      return 0;
-    }
-  });
-
-  // =========================================================
-  // LIABILITIES
-  // =========================================================
-
-  const [liabilities, setLiabilities] = useState(() => {
-    try {
-      return Number(
-        localStorage.getItem("ledgerly_liabilities") || 0
-      );
-    } catch {
-      return 0;
-    }
-  });
-
-  // =========================================================
-  // PERSIST TRANSACTIONS
-  // =========================================================
+  const {
+    transactions,
+    budgets,
+    goals,
+    recurring,
+    subscriptions,
+    documents,
+    rules,
+    tags,
+    categories,
+    accounts,
+    assets,
+    liabilities,
+    netWorthConfigured,
+  } = state;
 
   useEffect(() => {
-    localStorage.setItem(
-      "ledgerly_transactions",
-      JSON.stringify(transactions)
-    );
-  }, [transactions]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
 
-  // =========================================================
-  // PERSIST ASSETS
-  // =========================================================
-
-  useEffect(() => {
-    localStorage.setItem(
-      "ledgerly_assets",
-      String(assets)
-    );
-  }, [assets]);
-
-  // =========================================================
-  // PERSIST LIABILITIES
-  // =========================================================
-
-  useEffect(() => {
-    localStorage.setItem(
-      "ledgerly_liabilities",
-      String(liabilities)
-    );
-  }, [liabilities]);
-
-  // =========================================================
-  // TOTAL INCOME
-  // =========================================================
+  function updateState(updates) {
+    setState((current) => ({
+      ...current,
+      ...updates,
+    }));
+  }
 
   const income = useMemo(() => {
     return transactions
-      .filter((transaction) => transaction.type === "income")
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      );
+      .filter((t) => t.type === "income")
+      .reduce((total, t) => total + Number(t.amount), 0);
   }, [transactions]);
-
-  // =========================================================
-  // TOTAL EXPENSES
-  // =========================================================
 
   const spending = useMemo(() => {
     return transactions
-      .filter((transaction) => transaction.type === "expense")
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      );
+      .filter((t) => t.type === "expense")
+      .reduce((total, t) => total + Number(t.amount), 0);
   }, [transactions]);
 
-  // =========================================================
-  // CURRENT CASH FLOW
-  // =========================================================
+  const savings = income - spending;
 
-  const cashFlow = income - spending;
-
-  // =========================================================
-  // SAVINGS RATE
-  // =========================================================
-
-  const savings = useMemo(() => {
-    if (income <= 0) {
-      return 0;
-    }
-
-    return Math.round(
-      ((income - spending) / income) * 100
-    );
-  }, [income, spending]);
-
-  // =========================================================
-  // NET WORTH
-  // =========================================================
+  const savingsRate =
+    income > 0 ? Math.round((savings / income) * 100) : 0;
 
   const netWorth = assets - liabilities;
 
-  // =========================================================
-  // EXPENSES BY CATEGORY
-  // =========================================================
-
-  const expensesByCategory = useMemo(() => {
-    const categoryTotals = {};
-
-    transactions
-      .filter((transaction) => transaction.type === "expense")
-      .forEach((transaction) => {
-        const category =
-          transaction.category || "Other";
-
-        categoryTotals[category] =
-          (categoryTotals[category] || 0) +
-          Number(transaction.amount || 0);
-      });
-
-    return categoryTotals;
-  }, [transactions]);
-
-  // =========================================================
-  // RESET ALL DATA
-  // =========================================================
-
   function resetAllData() {
-    const confirmed = window.confirm(
-      "Are you sure you want to reset all Ledgerly data? This cannot be undone."
+    const confirmation = window.prompt(
+      'Type "DELETE ALL LEDGERLY DATA" to permanently reset Ledgerly.'
     );
 
-    if (!confirmed) {
+    if (confirmation !== "DELETE ALL LEDGERLY DATA") {
       return;
     }
 
-    localStorage.removeItem("ledgerly_transactions");
-    localStorage.removeItem("ledgerly_assets");
-    localStorage.removeItem("ledgerly_liabilities");
-    localStorage.removeItem("ledgerly_budgets");
-    localStorage.removeItem("ledgerly_goals");
-
-    setTransactions([]);
-    setAssets(0);
-    setLiabilities(0);
+    setState({
+      ...initialState,
+      categories: [...initialState.categories],
+    });
 
     setPage("Dashboard");
   }
 
-  // =========================================================
-  // RENDER
-  // =========================================================
-
-  return (
-    <div className="layout">
-      <Sidebar
-        page={page}
-        setPage={setPage}
-      />
-
-      <main className="content">
-        <Header title={page} />
-
-        {/* ===================================================
-            DASHBOARD
-        =================================================== */}
-
-        {page === "Dashboard" && (
+  function renderPage() {
+    switch (page) {
+      case "Dashboard":
+        return (
           <Dashboard
+            transactions={transactions}
             income={income}
             spending={spending}
-            cashFlow={cashFlow}
             savings={savings}
+            savingsRate={savingsRate}
             netWorth={netWorth}
-            transactions={transactions}
-            expensesByCategory={expensesByCategory}
+            netWorthConfigured={netWorthConfigured}
+            budgets={budgets}
+            goals={goals}
           />
-        )}
+        );
 
-        {/* ===================================================
-            TRANSACTIONS
-        =================================================== */}
-
-        {page === "Transactions" && (
+      case "Transactions":
+        return (
           <Transactions
             transactions={transactions}
-            setTransactions={setTransactions}
+            setTransactions={(value) =>
+              updateState({ transactions: value })
+            }
+            categories={categories}
+            accounts={accounts}
+            tags={tags}
           />
-        )}
+        );
 
-        {/* ===================================================
-            BUDGETS
-        =================================================== */}
+      case "Recurring":
+        return (
+          <Recurring
+            recurring={recurring}
+            setRecurring={(value) =>
+              updateState({ recurring: value })
+            }
+            categories={categories}
+            accounts={accounts}
+          />
+        );
 
-        {page === "Budgets" && (
+      case "Subscriptions":
+        return (
+          <Subscriptions
+            subscriptions={subscriptions}
+            setSubscriptions={(value) =>
+              updateState({ subscriptions: value })
+            }
+            categories={categories}
+            accounts={accounts}
+          />
+        );
+
+      case "Budgets":
+        return (
           <Budgets
+            budgets={budgets}
+            setBudgets={(value) =>
+              updateState({ budgets: value })
+            }
             transactions={transactions}
+            categories={categories}
           />
-        )}
+        );
 
-        {/* ===================================================
-            GOALS
-        =================================================== */}
-
-        {page === "Goals" && (
+      case "Goals":
+        return (
           <Goals
-            transactions={transactions}
+            goals={goals}
+            setGoals={(value) =>
+              updateState({ goals: value })
+            }
           />
-        )}
+        );
 
-        {/* ===================================================
-            SETTINGS
-        =================================================== */}
+      case "Documents":
+        return (
+          <Documents
+            documents={documents}
+            setDocuments={(value) =>
+              updateState({ documents: value })
+            }
+          />
+        );
 
-        {page === "Settings" && (
+      case "Rules":
+        return (
+          <Rules
+            rules={rules}
+            setRules={(value) =>
+              updateState({ rules: value })
+            }
+            categories={categories}
+          />
+        );
+
+      case "Settings":
+        return (
           <Settings
             assets={assets}
             liabilities={liabilities}
-            setAssets={setAssets}
-            setLiabilities={setLiabilities}
+            netWorthConfigured={netWorthConfigured}
+            categories={categories}
+            accounts={accounts}
+            tags={tags}
+            setSettings={updateState}
             resetAllData={resetAllData}
           />
-        )}
-      </main>
+        );
+
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <div className="appShell">
+      <Sidebar page={page} setPage={setPage} />
+
+      <div className="mainArea">
+        <Header page={page} />
+
+        <main className="pageContent">
+          {renderPage()}
+        </main>
+      </div>
     </div>
   );
 }
