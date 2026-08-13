@@ -4,6 +4,7 @@ export default function Dashboard({
   income,
   spending,
   savings,
+  netWorth,
   transactions,
 }) {
   return (
@@ -17,9 +18,9 @@ export default function Dashboard({
         />
         <SummaryCard title="Savings" value={`${savings}%`} color="#2563EB" />
         <SummaryCard
-          title="Transactions"
-          value={transactions.length}
-          color="#6558D3"
+          title="Net Worth"
+          value={`₹${netWorth.toLocaleString()}`}
+          color="#7C3AED"
         />
       </div>
 
