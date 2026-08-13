@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import "./index.css";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -12,7 +13,33 @@ import Settings from "./pages/Settings";
 export default function App() {
   const [page, setPage] = useState("Dashboard");
 
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState(() => {
+    const data = localStorage.getItem("ledgerly_transactions");
+    return data ? JSON.parse(data) : [];
+  });
+
+  const [assets, setAssets] = useState(() =>
+    Number(localStorage.getItem("ledgerly_assets") || 0)
+  );
+
+  const [liabilities, setLiabilities] = useState(() =>
+    Number(localStorage.getItem("ledgerly_liabilities") || 0)
+  );
+
+  useEffect(() => {
+    localStorage.setItem(
+      "ledgerly_transactions",
+      JSON.stringify(transactions)
+    );
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem("ledgerly_assets", assets);
+  }, [assets]);
+
+  useEffect(() => {
+    localStorage.setItem("ledgerly_liabilities", liabilities);
+  }, [liabilities]);
 
   const income = useMemo(
     () =>
@@ -33,6 +60,8 @@ export default function App() {
   const savings =
     income === 0 ? 0 : Math.round(((income - spending) / income) * 100);
 
+  const netWorth = assets - liabilities;
+
   return (
     <div className="layout">
       <Sidebar page={page} setPage={setPage} />
@@ -45,6 +74,7 @@ export default function App() {
             income={income}
             spending={spending}
             savings={savings}
+            netWorth={netWorth}
             transactions={transactions}
           />
         )}
@@ -60,7 +90,14 @@ export default function App() {
 
         {page === "Goals" && <Goals />}
 
-        {page === "Settings" && <Settings />}
+        {page === "Settings" && (
+          <Settings
+            assets={assets}
+            liabilities={liabilities}
+            setAssets={setAssets}
+            setLiabilities={setLiabilities}
+          />
+        )}
       </main>
     </div>
   );
