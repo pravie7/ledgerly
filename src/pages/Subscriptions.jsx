@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 
 const categories = [
-  "Streaming",
+  "Entertainment",
   "Software",
   "Cloud Storage",
-  "Fitness",
+  "Streaming",
   "Education",
+  "Fitness",
   "News",
-  "Gaming",
   "Other",
 ];
 
@@ -21,91 +21,68 @@ function formatCurrency(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
-function getMonthlyCost(amount, cycle) {
-  const value = Number(amount || 0);
+function getInitialSubscriptions() {
+  try {
+    const saved = localStorage.getItem(
+      "ledgerly_subscriptions"
+    );
 
-  if (cycle === "Monthly") {
-    return value;
-  }
-
-  if (cycle === "Quarterly") {
-    return value / 3;
-  }
-
-  if (cycle === "Yearly") {
-    return value / 12;
-  }
-
-  return value;
-}
-
-export default function Subscriptions({
-  subscriptions,
-  setSubscriptions,
-}) {
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("Streaming");
-  const [billingCycle, setBillingCycle] =
-    useState("Monthly");
-  const [renewalDate, setRenewalDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
-  const [search, setSearch] = useState("");
-  const [editingId, setEditingId] = useState(null);
-
-  const items = Array.isArray(subscriptions)
-    ? subscriptions
-    : [];
-
-  const filteredSubscriptions = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    if (!query) {
-      return items;
+    if (!saved) {
+      return [];
     }
 
-    return items.filter((item) => {
-      return (
-        item.name?.toLowerCase().includes(query) ||
-        item.category?.toLowerCase().includes(query) ||
-        item.billingCycle
-          ?.toLowerCase()
-          .includes(query)
-      );
-    });
-  }, [items, search]);
+    const parsed = JSON.parse(saved);
 
-  const monthlyTotal = useMemo(() => {
-    return items.reduce((total, item) => {
-      if (item.active === false) {
-        return total;
-      }
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
-      return (
-        total +
-        getMonthlyCost(
-          item.amount,
-          item.billingCycle
-        )
-      );
-    }, 0);
-  }, [items]);
+function getMonthlyCost(subscription) {
+  const amount = Number(subscription.amount || 0);
 
-  const yearlyTotal = monthlyTotal * 12;
-
-  function resetForm() {
-    setName("");
-    setAmount("");
-    setCategory("Streaming");
-    setBillingCycle("Monthly");
-    setRenewalDate(
-      new Date().toISOString().slice(0, 10)
-    );
-    setEditingId(null);
+  if (subscription.billingCycle === "Monthly") {
+    return amount;
   }
 
-  function saveSubscription() {
+  if (subscription.billingCycle === "Quarterly") {
+    return amount / 3;
+  }
+
+  if (subscription.billingCycle === "Yearly") {
+    return amount / 12;
+  }
+
+  return 0;
+}
+
+export default function Subscriptions() {
+  const [subscriptions, setSubscriptions] = useState(
+    getInitialSubscriptions
+  );
+
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState(
+    "Entertainment"
+  );
+  const [billingCycle, setBillingCycle] =
+    useState("Monthly");
+  const [nextBillingDate, setNextBillingDate] =
+    useState("");
+  const [search, setSearch] = useState("");
+
+  function saveSubscriptions(items) {
+    setSubscriptions(items);
+
+    localStorage.setItem(
+      "ledgerly_subscriptions",
+      JSON.stringify(items)
+    );
+  }
+
+  function addSubscription() {
     const cleanName = name.trim();
     const numericAmount = Number(amount);
 
@@ -119,81 +96,62 @@ export default function Subscriptions({
       return;
     }
 
-    if (!renewalDate) {
-      alert("Please select a renewal date.");
+    if (!nextBillingDate) {
+      alert("Please select the next billing date.");
       return;
     }
 
-    const duplicate = items.find((item) => {
-      if (item.id === editingId) {
-        return false;
-      }
-
-      return (
-        item.name?.trim().toLowerCase() ===
+    const duplicate = subscriptions.some(
+      (subscription) =>
+        subscription.name.toLowerCase() ===
           cleanName.toLowerCase() &&
-        Number(item.amount) === numericAmount &&
-        item.billingCycle === billingCycle
-      );
-    });
+        Number(subscription.amount) === numericAmount
+    );
 
     if (duplicate) {
       alert("This subscription already exists.");
       return;
     }
 
-    if (editingId) {
-      setSubscriptions(
-        items.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                name: cleanName,
-                amount: numericAmount,
-                category,
-                billingCycle,
-                renewalDate,
-              }
-            : item
-        )
-      );
-    } else {
-      const newSubscription = {
-        id: crypto.randomUUID(),
-        name: cleanName,
-        amount: numericAmount,
-        category,
-        billingCycle,
-        renewalDate,
-        active: true,
-      };
+    const newSubscription = {
+      id:
+        typeof crypto !== "undefined" &&
+        crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`,
+      name: cleanName,
+      amount: numericAmount,
+      category,
+      billingCycle,
+      nextBillingDate,
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
 
-      setSubscriptions([
-        newSubscription,
-        ...items,
-      ]);
-    }
+    saveSubscriptions([
+      newSubscription,
+      ...subscriptions,
+    ]);
 
-    resetForm();
+    setName("");
+    setAmount("");
+    setCategory("Entertainment");
+    setBillingCycle("Monthly");
+    setNextBillingDate("");
   }
 
-  function editSubscription(item) {
-    setEditingId(item.id);
-    setName(item.name || "");
-    setAmount(String(item.amount || ""));
-    setCategory(item.category || "Other");
-    setBillingCycle(
-      item.billingCycle || "Monthly"
-    );
-    setRenewalDate(
-      item.renewalDate ||
-        new Date().toISOString().slice(0, 10)
+  function toggleSubscription(id) {
+    const updated = subscriptions.map(
+      (subscription) =>
+        subscription.id === id
+          ? {
+              ...subscription,
+              active: !subscription.active,
+            }
+          : subscription
     );
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    saveSubscriptions(updated);
   }
 
   function deleteSubscription(id) {
@@ -205,27 +163,48 @@ export default function Subscriptions({
       return;
     }
 
-    setSubscriptions(
-      items.filter((item) => item.id !== id)
-    );
-
-    if (editingId === id) {
-      resetForm();
-    }
-  }
-
-  function toggleSubscription(id) {
-    setSubscriptions(
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              active: item.active === false,
-            }
-          : item
+    saveSubscriptions(
+      subscriptions.filter(
+        (subscription) => subscription.id !== id
       )
     );
   }
+
+  const filteredSubscriptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return subscriptions;
+    }
+
+    return subscriptions.filter((subscription) => {
+      return (
+        subscription.name
+          .toLowerCase()
+          .includes(query) ||
+        subscription.category
+          .toLowerCase()
+          .includes(query) ||
+        subscription.billingCycle
+          .toLowerCase()
+          .includes(query)
+      );
+    });
+  }, [subscriptions, search]);
+
+  const activeSubscriptions = subscriptions.filter(
+    (subscription) => subscription.active
+  );
+
+  const monthlyCost = activeSubscriptions.reduce(
+    (total, subscription) =>
+      total + getMonthlyCost(subscription),
+    0
+  );
+
+  const yearlyCost = monthlyCost * 12;
+
+  const activeCount = activeSubscriptions.length;
 
   return (
     <div className="pageStack">
@@ -234,8 +213,8 @@ export default function Subscriptions({
           <h1>Subscriptions</h1>
 
           <p>
-            Track recurring subscriptions and understand
-            your ongoing costs.
+            Track your recurring subscriptions and understand
+            how much they cost over time.
           </p>
         </div>
       </section>
@@ -247,11 +226,7 @@ export default function Subscriptions({
           </span>
 
           <strong className="statValue">
-            {
-              items.filter(
-                (item) => item.active !== false
-              ).length
-            }
+            {activeCount}
           </strong>
 
           <span className="statHint">
@@ -264,12 +239,12 @@ export default function Subscriptions({
             Monthly Cost
           </span>
 
-          <strong className="statValue">
-            {formatCurrency(monthlyTotal)}
+          <strong className="statValue negative">
+            {formatCurrency(monthlyCost)}
           </strong>
 
           <span className="statHint">
-            Estimated monthly commitment
+            Estimated monthly cost
           </span>
         </div>
 
@@ -278,12 +253,30 @@ export default function Subscriptions({
             Yearly Cost
           </span>
 
-          <strong className="statValue">
-            {formatCurrency(yearlyTotal)}
+          <strong className="statValue negative">
+            {formatCurrency(yearlyCost)}
           </strong>
 
           <span className="statHint">
-            Estimated annual commitment
+            Estimated annual cost
+          </span>
+        </div>
+
+        <div className="statCard">
+          <span className="statLabel">
+            Average / Subscription
+          </span>
+
+          <strong className="statValue">
+            {formatCurrency(
+              activeCount === 0
+                ? 0
+                : monthlyCost / activeCount
+            )}
+          </strong>
+
+          <span className="statHint">
+            Monthly average
           </span>
         </div>
       </section>
@@ -291,21 +284,16 @@ export default function Subscriptions({
       <section className="panel">
         <div className="panelHeader">
           <div>
-            <h2>
-              {editingId
-                ? "Edit Subscription"
-                : "Add Subscription"}
-            </h2>
+            <h2>Add Subscription</h2>
 
             <p>
-              Record Netflix, software, cloud storage,
-              memberships, and other subscriptions.
+              Record a subscription you pay for regularly.
             </p>
           </div>
         </div>
 
         <div className="formGrid">
-          <div className="formField">
+          <div className="formGroup">
             <label>Subscription Name</label>
 
             <input
@@ -318,14 +306,14 @@ export default function Subscriptions({
             />
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Amount</label>
 
             <input
               type="number"
               min="0"
               step="0.01"
-              placeholder="Enter amount"
+              placeholder="Amount"
               value={amount}
               onChange={(event) =>
                 setAmount(event.target.value)
@@ -333,7 +321,7 @@ export default function Subscriptions({
             />
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Category</label>
 
             <select
@@ -350,7 +338,7 @@ export default function Subscriptions({
             </select>
           </div>
 
-          <div className="formField">
+          <div className="formGroup">
             <label>Billing Cycle</label>
 
             <select
@@ -367,45 +355,31 @@ export default function Subscriptions({
             </select>
           </div>
 
-          <div className="formField">
-            <label>Next Renewal</label>
+          <div className="formGroup">
+            <label>Next Billing Date</label>
 
             <input
               type="date"
-              value={renewalDate}
+              value={nextBillingDate}
               onChange={(event) =>
-                setRenewalDate(event.target.value)
+                setNextBillingDate(event.target.value)
               }
             />
           </div>
         </div>
 
-        <div className="formActions">
-          <button onClick={saveSubscription}>
-            {editingId
-              ? "Save Changes"
-              : "+ Add Subscription"}
-          </button>
-
-          {editingId && (
-            <button
-              className="secondaryButton"
-              onClick={resetForm}
-            >
-              Cancel
-            </button>
-          )}
-        </div>
+        <button onClick={addSubscription}>
+          + Add Subscription
+        </button>
       </section>
 
       <section className="panel">
         <div className="panelHeader">
           <div>
-            <h2>Subscription List</h2>
+            <h2>Your Subscriptions</h2>
 
             <p>
-              {items.length} subscription
-              {items.length === 1 ? "" : "s"} recorded.
+              Manage your active and inactive subscriptions.
             </p>
           </div>
 
@@ -425,99 +399,79 @@ export default function Subscriptions({
             <div className="emptyIcon">◉</div>
 
             <h3>
-              {items.length === 0
+              {subscriptions.length === 0
                 ? "No subscriptions yet"
                 : "No matching subscriptions"}
             </h3>
 
             <p>
-              {items.length === 0
+              {subscriptions.length === 0
                 ? "Add your first subscription above."
                 : "Try a different search term."}
             </p>
           </div>
         ) : (
-          <div className="tableWrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Category</th>
-                  <th>Billing</th>
-                  <th>Renewal</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+          <div className="transactionList">
+            {filteredSubscriptions.map(
+              (subscription) => (
+                <div
+                  className="transactionListItem"
+                  key={subscription.id}
+                >
+                  <div>
+                    <strong>
+                      {subscription.name}
+                    </strong>
 
-              <tbody>
-                {filteredSubscriptions.map(
-                  (item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <strong>{item.name}</strong>
-                      </td>
+                    <span>
+                      {subscription.category} ·{" "}
+                      {subscription.billingCycle} · Next:{" "}
+                      {subscription.nextBillingDate}
+                    </span>
+                  </div>
 
-                      <td>{item.category}</td>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <strong className="negative">
+                      -{formatCurrency(subscription.amount)}
+                    </strong>
 
-                      <td>{item.billingCycle}</td>
+                    <button
+                      className={
+                        subscription.active
+                          ? "secondaryButton"
+                          : "primaryButton"
+                      }
+                      onClick={() =>
+                        toggleSubscription(
+                          subscription.id
+                        )
+                      }
+                    >
+                      {subscription.active
+                        ? "Active"
+                        : "Inactive"}
+                    </button>
 
-                      <td>{item.renewalDate}</td>
-
-                      <td>
-                        <strong>
-                          {formatCurrency(item.amount)}
-                        </strong>
-                      </td>
-
-                      <td>
-                        <button
-                          className={
-                            item.active === false
-                              ? "secondaryButton"
-                              : "statusButton"
-                          }
-                          onClick={() =>
-                            toggleSubscription(
-                              item.id
-                            )
-                          }
-                        >
-                          {item.active === false
-                            ? "Paused"
-                            : "Active"}
-                        </button>
-                      </td>
-
-                      <td>
-                        <div className="tableActions">
-                          <button
-                            className="secondaryButton"
-                            onClick={() =>
-                              editSubscription(item)
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            className="delete"
-                            onClick={() =>
-                              deleteSubscription(
-                                item.id
-                              )
-                            }
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
+                    <button
+                      className="delete"
+                      onClick={() =>
+                        deleteSubscription(
+                          subscription.id
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
           </div>
         )}
       </section>
