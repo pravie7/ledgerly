@@ -27,6 +27,11 @@ export default function Transactions({
     setAmount("");
   }
 
+  function remove(index) {
+    const updated = transactions.filter((_, i) => i !== index);
+    setTransactions(updated);
+  }
+
   return (
     <>
       <div className="panel">
@@ -66,10 +71,12 @@ export default function Transactions({
           </select>
         </div>
 
-        <button onClick={add}>Add</button>
+        <button onClick={add}>Add Transaction</button>
       </div>
 
       <div className="panel">
+        <h3>Transaction History</h3>
+
         <table>
           <thead>
             <tr>
@@ -77,6 +84,7 @@ export default function Transactions({
               <th>Merchant</th>
               <th>Category</th>
               <th>Amount</th>
+              <th></th>
             </tr>
           </thead>
 
@@ -87,6 +95,14 @@ export default function Transactions({
                 <td>{t.merchant}</td>
                 <td>{t.category}</td>
                 <td>{t.type === "income" ? "+" : "-"}₹{t.amount}</td>
+                <td>
+                  <button
+                    className="delete"
+                    onClick={() => remove(i)}
+                  >
+                    ✕
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
