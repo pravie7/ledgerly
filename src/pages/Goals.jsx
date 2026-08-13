@@ -1,676 +1,553 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-const goalTypes = [
+const goalCategories = [
   "Emergency Fund",
-  "Bike",
-  "Car",
-  "House",
+  "Vehicle",
+  "Home",
   "Travel",
   "Education",
   "Investment",
+  "Wedding",
   "Other",
 ];
 
-export default function Goals() {
-  const [goals, setGoals] = useState(() => {
-    try {
-      const saved = localStorage.getItem("ledgerly_goals");
+function formatCurrency(value) {
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+}
 
-      if (!saved) {
-        return [];
-      }
+function getInitialGoals() {
+  try {
+    const saved = localStorage.getItem("ledgerly_goals");
 
-      const parsed = JSON.parse(saved);
-
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
+    if (!saved) {
       return [];
     }
-  });
+
+    const parsed = JSON.parse(saved);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function Goals() {
+  const [goals, setGoals] = useState(getInitialGoals);
 
   const [name, setName] = useState("");
-  const [type, setType] = useState("Emergency Fund");
   const [target, setTarget] = useState("");
-  const [initialAmount, setInitialAmount] = useState("");
+  const [initialAmount, setInitialAmount] =
+    useState("");
+  const [category, setCategory] = useState(
+    "Emergency Fund"
+  );
+  const [targetDate, setTargetDate] = useState("");
 
-  const [editingId, setEditingId] = useState(null);
-  const [contributionId, setContributionId] = useState(null);
-  const [contributionAmount, setContributionAmount] = useState("");
+  const [contributionGoalId, setContributionGoalId] =
+    useState(null);
+  const [contributionAmount, setContributionAmount] =
+    useState("");
 
-  useEffect(() => {
-    localStorage.setItem("ledgerly_goals", JSON.stringify(goals));
-  }, [goals]);
+  function saveGoals(items) {
+    setGoals(items);
 
-  const totalTarget = useMemo(() => {
-    return goals.reduce((total, goal) => {
-      return total + Number(goal.target || 0);
-    }, 0);
-  }, [goals]);
-
-  const totalSaved = useMemo(() => {
-    return goals.reduce((total, goal) => {
-      return total + Number(goal.saved || 0);
-    }, 0);
-  }, [goals]);
-
-  function resetForm() {
-    setName("");
-    setType("Emergency Fund");
-    setTarget("");
-    setInitialAmount("");
-    setEditingId(null);
+    localStorage.setItem(
+      "ledgerly_goals",
+      JSON.stringify(items)
+    );
   }
 
-  function saveGoal() {
+  function addGoal() {
     const cleanName = name.trim();
-    const targetAmount = Number(target);
-    const savedAmount = Number(initialAmount || 0);
+    const numericTarget = Number(target);
+    const numericInitialAmount = Number(
+      initialAmount || 0
+    );
 
     if (!cleanName) {
       alert("Please enter a goal name.");
       return;
     }
 
-    if (!targetAmount || targetAmount <= 0) {
+    if (!target || numericTarget <= 0) {
       alert("Please enter a valid target amount.");
       return;
     }
 
-    if (savedAmount < 0) {
-      alert("Saved amount cannot be negative.");
+    if (numericInitialAmount < 0) {
+      alert("Initial amount cannot be negative.");
       return;
     }
 
-    if (savedAmount > targetAmount) {
-      alert("Saved amount cannot be greater than the target.");
+    if (numericInitialAmount > numericTarget) {
+      alert(
+        "Initial amount cannot be greater than the target."
+      );
       return;
     }
 
-    if (editingId) {
-      setGoals((currentGoals) =>
-        currentGoals.map((goal) => {
-          if (goal.id !== editingId) {
-            return goal;
-          }
+    const duplicate = goals.some(
+      (goal) =>
+        goal.name.toLowerCase() ===
+        cleanName.toLowerCase()
+    );
 
-          return {
-            ...goal,
-            name: cleanName,
-            type,
-            target: targetAmount,
-            saved: savedAmount,
-          };
-        })
-      );
-    } else {
-      const duplicate = goals.some(
-        (goal) =>
-          goal.name.trim().toLowerCase() === cleanName.toLowerCase()
-      );
-
-      if (duplicate) {
-        alert("A goal with this name already exists.");
-        return;
-      }
-
-      const newGoal = {
-        id: crypto.randomUUID(),
-        name: cleanName,
-        type,
-        target: targetAmount,
-        saved: savedAmount,
-        createdAt: new Date().toISOString(),
-      };
-
-      setGoals((currentGoals) => [newGoal, ...currentGoals]);
+    if (duplicate) {
+      alert("A goal with this name already exists.");
+      return;
     }
 
-    resetForm();
+    const newGoal = {
+      id:
+        typeof crypto !== "undefined" &&
+        crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`,
+      name: cleanName,
+      target: numericTarget,
+      saved: numericInitialAmount,
+      category,
+      targetDate,
+      createdAt: new Date().toISOString(),
+    };
+
+    saveGoals([newGoal, ...goals]);
+
+    setName("");
+    setTarget("");
+    setInitialAmount("");
+    setCategory("Emergency Fund");
+    setTargetDate("");
   }
 
-  function editGoal(goal) {
-    setEditingId(goal.id);
-    setName(goal.name);
-    setType(goal.type || "Other");
-    setTarget(String(goal.target || ""));
-    setInitialAmount(String(goal.saved || ""));
-    setContributionId(null);
-    setContributionAmount("");
+  function addContribution(goalId) {
+    const amount = Number(contributionAmount);
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
+    if (!contributionAmount || amount <= 0) {
+      alert("Please enter a valid contribution.");
+      return;
+    }
+
+    const updated = goals.map((goal) => {
+      if (goal.id !== goalId) {
+        return goal;
+      }
+
+      return {
+        ...goal,
+        saved: Math.min(
+          Number(goal.target),
+          Number(goal.saved || 0) + amount
+        ),
+      };
     });
+
+    saveGoals(updated);
+
+    setContributionGoalId(null);
+    setContributionAmount("");
   }
 
   function deleteGoal(id) {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this goal?"
+      "Delete this savings goal?"
     );
 
     if (!confirmed) {
       return;
     }
 
-    setGoals((currentGoals) =>
-      currentGoals.filter((goal) => goal.id !== id)
-    );
-
-    if (editingId === id) {
-      resetForm();
-    }
-
-    if (contributionId === id) {
-      setContributionId(null);
-      setContributionAmount("");
-    }
-  }
-
-  function addContribution(goalId) {
-    const amount = Number(contributionAmount);
-
-    if (!amount || amount <= 0) {
-      alert("Please enter a valid contribution.");
-      return;
-    }
-
-    setGoals((currentGoals) =>
-      currentGoals.map((goal) => {
-        if (goal.id !== goalId) {
-          return goal;
-        }
-
-        const currentSaved = Number(goal.saved || 0);
-        const targetAmount = Number(goal.target || 0);
-
-        const newSaved = Math.min(
-          currentSaved + amount,
-          targetAmount
-        );
-
-        return {
-          ...goal,
-          saved: newSaved,
-        };
-      })
-    );
-
-    setContributionId(null);
-    setContributionAmount("");
-  }
-
-  function cancelContribution() {
-    setContributionId(null);
-    setContributionAmount("");
-  }
-
-  function getProgress(goal) {
-    const targetAmount = Number(goal.target || 0);
-    const savedAmount = Number(goal.saved || 0);
-
-    if (targetAmount <= 0) {
-      return 0;
-    }
-
-    return Math.min(
-      100,
-      Math.round((savedAmount / targetAmount) * 100)
+    saveGoals(
+      goals.filter((goal) => goal.id !== id)
     );
   }
 
-  function getRemaining(goal) {
-    const targetAmount = Number(goal.target || 0);
-    const savedAmount = Number(goal.saved || 0);
+  const totalTarget = useMemo(() => {
+    return goals.reduce(
+      (total, goal) => total + Number(goal.target || 0),
+      0
+    );
+  }, [goals]);
 
-    return Math.max(0, targetAmount - savedAmount);
-  }
+  const totalSaved = useMemo(() => {
+    return goals.reduce(
+      (total, goal) => total + Number(goal.saved || 0),
+      0
+    );
+  }, [goals]);
+
+  const totalRemaining = Math.max(
+    0,
+    totalTarget - totalSaved
+  );
+
+  const overallProgress =
+    totalTarget > 0
+      ? Math.min(
+          100,
+          (totalSaved / totalTarget) * 100
+        )
+      : 0;
 
   return (
-    <>
-      <div className="panel">
-        <h2>{editingId ? "Edit Goal" : "Create Savings Goal"}</h2>
+    <div className="pageStack">
+      <section className="heroSection">
+        <div>
+          <h1>Goals</h1>
 
-        <input
-          type="text"
-          placeholder="Goal name (Emergency Fund, Bike...)"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
+          <p>
+            Set savings targets and track your progress
+            toward them.
+          </p>
+        </div>
+      </section>
 
-        <div className="row">
-          <select
-            value={type}
-            onChange={(event) => setType(event.target.value)}
-          >
-            {goalTypes.map((goalType) => (
-              <option key={goalType} value={goalType}>
-                {goalType}
-              </option>
-            ))}
-          </select>
+      <section className="statGrid">
+        <div className="statCard">
+          <span className="statLabel">
+            Active Goals
+          </span>
 
-          <input
-            type="number"
-            min="0"
-            placeholder="Target amount"
-            value={target}
-            onChange={(event) => setTarget(event.target.value)}
-          />
+          <strong className="statValue">
+            {goals.length}
+          </strong>
+
+          <span className="statHint">
+            Savings goals created
+          </span>
         </div>
 
-        <input
-          type="number"
-          min="0"
-          placeholder="Already saved (optional)"
-          value={initialAmount}
-          onChange={(event) =>
-            setInitialAmount(event.target.value)
-          }
-        />
+        <div className="statCard">
+          <span className="statLabel">
+            Total Target
+          </span>
 
-        <div className="goalFormActions">
-          <button onClick={saveGoal}>
-            {editingId ? "Update Goal" : "Create Goal"}
-          </button>
+          <strong className="statValue">
+            {formatCurrency(totalTarget)}
+          </strong>
 
-          {editingId && (
-            <button
-              className="secondaryButton"
-              onClick={resetForm}
+          <span className="statHint">
+            Combined goal amount
+          </span>
+        </div>
+
+        <div className="statCard">
+          <span className="statLabel">
+            Total Saved
+          </span>
+
+          <strong className="statValue positive">
+            {formatCurrency(totalSaved)}
+          </strong>
+
+          <span className="statHint">
+            Current contributions
+          </span>
+        </div>
+
+        <div className="statCard">
+          <span className="statLabel">
+            Remaining
+          </span>
+
+          <strong className="statValue">
+            {formatCurrency(totalRemaining)}
+          </strong>
+
+          <span className="statHint">
+            Across all goals
+          </span>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panelHeader">
+          <div>
+            <h2>Create Savings Goal</h2>
+
+            <p>
+              Define what you're saving for and how much you
+              need.
+            </p>
+          </div>
+        </div>
+
+        <div className="formGrid">
+          <div className="formGroup">
+            <label>Goal Name</label>
+
+            <input
+              type="text"
+              placeholder="Emergency Fund, Bike, House..."
+              value={name}
+              onChange={(event) =>
+                setName(event.target.value)
+              }
+            />
+          </div>
+
+          <div className="formGroup">
+            <label>Target Amount</label>
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Target amount"
+              value={target}
+              onChange={(event) =>
+                setTarget(event.target.value)
+              }
+            />
+          </div>
+
+          <div className="formGroup">
+            <label>Already Saved</label>
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={initialAmount}
+              onChange={(event) =>
+                setInitialAmount(event.target.value)
+              }
+            />
+          </div>
+
+          <div className="formGroup">
+            <label>Category</label>
+
+            <select
+              value={category}
+              onChange={(event) =>
+                setCategory(event.target.value)
+              }
             >
-              Cancel
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="panel">
-        <h2>Goals Summary</h2>
-
-        <div className="goalSummary">
-          <div className="goalSummaryCard">
-            <span>Total Goals</span>
-            <strong>{goals.length}</strong>
+              {goalCategories.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="goalSummaryCard">
-            <span>Total Target</span>
-            <strong>
-              ₹{totalTarget.toLocaleString("en-IN")}
-            </strong>
-          </div>
+          <div className="formGroup">
+            <label>Target Date</label>
 
-          <div className="goalSummaryCard">
-            <span>Total Saved</span>
-            <strong>
-              ₹{totalSaved.toLocaleString("en-IN")}
-            </strong>
-          </div>
-
-          <div className="goalSummaryCard">
-            <span>Overall Progress</span>
-            <strong>
-              {totalTarget > 0
-                ? Math.min(
-                    100,
-                    Math.round(
-                      (totalSaved / totalTarget) * 100
-                    )
-                  )
-                : 0}
-              %
-            </strong>
+            <input
+              type="date"
+              value={targetDate}
+              onChange={(event) =>
+                setTargetDate(event.target.value)
+              }
+            />
           </div>
         </div>
-      </div>
 
-      <div className="panel">
-        <h2>Your Goals</h2>
+        <button onClick={addGoal}>
+          + Create Goal
+        </button>
+      </section>
+
+      <section className="panel">
+        <div className="panelHeader">
+          <div>
+            <h2>Goal Overview</h2>
+
+            <p>
+              Track how close you are to reaching each goal.
+            </p>
+          </div>
+        </div>
 
         {goals.length === 0 ? (
-          <div className="emptyGoals">
+          <div className="emptyState">
+            <div className="emptyIcon">◎</div>
+
             <h3>No savings goals yet</h3>
+
             <p>
-              Create your first goal above and start tracking
-              your progress.
+              Create your first goal above to start tracking
+              your savings.
             </p>
           </div>
         ) : (
-          goals.map((goal) => {
-            const progress = getProgress(goal);
-            const remaining = getRemaining(goal);
-            const completed = progress >= 100;
+          <>
+            <div className="budgetCard">
+              <div className="budgetHeader">
+                <div>
+                  <strong>Overall Progress</strong>
 
-            return (
-              <div className="goalCard" key={goal.id}>
-                <div className="goalHeader">
-                  <div>
-                    <h3>{goal.name}</h3>
+                  <div className="budgetRow">
+                    <span>
+                      {formatCurrency(totalSaved)}
+                    </span>
 
-                    <span className="goalType">
-                      {goal.type}
+                    <span>
+                      {formatCurrency(totalTarget)}
                     </span>
                   </div>
+                </div>
 
-                  <div className="goalActions">
-                    <button
-                      className="editButton"
-                      onClick={() => editGoal(goal)}
-                    >
-                      Edit
-                    </button>
+                <strong>
+                  {Math.round(overallProgress)}%
+                </strong>
+              </div>
+
+              <div className="progress">
+                <div
+                  style={{
+                    width: `${overallProgress}%`,
+                    background: "#6558D3",
+                  }}
+                />
+              </div>
+            </div>
+
+            {goals.map((goal) => {
+              const saved = Number(goal.saved || 0);
+              const goalTarget = Number(
+                goal.target || 0
+              );
+
+              const remaining = Math.max(
+                0,
+                goalTarget - saved
+              );
+
+              const progress =
+                goalTarget > 0
+                  ? Math.min(
+                      100,
+                      (saved / goalTarget) * 100
+                    )
+                  : 0;
+
+              const completed =
+                saved >= goalTarget;
+
+              return (
+                <div
+                  className="budgetCard"
+                  key={goal.id}
+                >
+                  <div className="budgetHeader">
+                    <div>
+                      <h3>{goal.name}</h3>
+
+                      <span>
+                        {goal.category}
+                        {goal.targetDate
+                          ? ` · Target: ${goal.targetDate}`
+                          : ""}
+                      </span>
+                    </div>
 
                     <button
                       className="delete"
-                      onClick={() => deleteGoal(goal.id)}
+                      onClick={() =>
+                        deleteGoal(goal.id)
+                      }
                     >
                       Delete
                     </button>
                   </div>
-                </div>
 
-                <div className="goalAmounts">
-                  <div>
+                  <div className="budgetRow">
                     <span>Saved</span>
 
                     <strong>
-                      ₹{Number(goal.saved || 0).toLocaleString("en-IN")}
+                      {formatCurrency(saved)} /{" "}
+                      {formatCurrency(goalTarget)}
                     </strong>
                   </div>
 
-                  <div>
-                    <span>Target</span>
-
-                    <strong>
-                      ₹{Number(goal.target || 0).toLocaleString("en-IN")}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Remaining</span>
-
-                    <strong>
-                      ₹{remaining.toLocaleString("en-IN")}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="goalProgressHeader">
-                  <span>Progress</span>
-
-                  <strong>{progress}%</strong>
-                </div>
-
-                <div className="goalProgress">
-                  <div
-                    className="goalProgressBar"
-                    style={{
-                      width: `${progress}%`,
-                    }}
-                  />
-                </div>
-
-                <div className="goalStatus">
-                  {completed ? (
-                    <span className="goalCompleted">
-                      🎉 Goal completed
-                    </span>
-                  ) : (
-                    <span>
-                      ₹{remaining.toLocaleString("en-IN")} left
-                      to reach your goal
-                    </span>
-                  )}
-                </div>
-
-                {contributionId === goal.id ? (
-                  <div className="contributionBox">
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Contribution amount"
-                      value={contributionAmount}
-                      onChange={(event) =>
-                        setContributionAmount(event.target.value)
-                      }
+                  <div className="progress">
+                    <div
+                      style={{
+                        width: `${progress}%`,
+                        background: completed
+                          ? "#16A34A"
+                          : "#6558D3",
+                      }}
                     />
+                  </div>
 
+                  <div className="budgetRow">
+                    <span>
+                      {completed
+                        ? "Goal completed"
+                        : `${Math.round(progress)}% complete`}
+                    </span>
+
+                    <strong
+                      className={
+                        completed
+                          ? "positive"
+                          : ""
+                      }
+                    >
+                      {completed
+                        ? "₹0 remaining"
+                        : `${formatCurrency(
+                            remaining
+                          )} remaining`}
+                    </strong>
+                  </div>
+
+                  {contributionGoalId === goal.id ? (
+                    <div className="row">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Contribution amount"
+                        value={contributionAmount}
+                        onChange={(event) =>
+                          setContributionAmount(
+                            event.target.value
+                          )
+                        }
+                      />
+
+                      <button
+                        onClick={() =>
+                          addContribution(goal.id)
+                        }
+                      >
+                        Add
+                      </button>
+
+                      <button
+                        className="secondaryButton"
+                        onClick={() => {
+                          setContributionGoalId(null);
+                          setContributionAmount("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       onClick={() =>
-                        addContribution(goal.id)
+                        setContributionGoalId(goal.id)
                       }
+                      disabled={completed}
                     >
-                      Add
+                      {completed
+                        ? "Goal Completed"
+                        : "+ Add Contribution"}
                     </button>
-
-                    <button
-                      className="secondaryButton"
-                      onClick={cancelContribution}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    className="contributeButton"
-                    onClick={() => {
-                      setContributionId(goal.id);
-                      setContributionAmount("");
-                    }}
-                    disabled={completed}
-                  >
-                    {completed
-                      ? "Goal Completed"
-                      : "+ Add Contribution"}
-                  </button>
-                )}
-              </div>
-            );
-          })
+                  )}
+                </div>
+              );
+            })}
+          </>
         )}
-      </div>
-
-      <style>{`
-        .goalFormActions {
-          display: flex;
-          gap: 10px;
-          margin-top: 12px;
-        }
-
-        .secondaryButton {
-          background: #E5E7EB;
-          color: #111827;
-          border: none;
-          padding: 10px 16px;
-          border-radius: 8px;
-          cursor: pointer;
-        }
-
-        .secondaryButton:hover {
-          opacity: 0.9;
-        }
-
-        .goalSummary {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 12px;
-        }
-
-        .goalSummaryCard {
-          border: 1px solid #E5E7EB;
-          border-radius: 12px;
-          padding: 16px;
-        }
-
-        .goalSummaryCard span {
-          display: block;
-          font-size: 13px;
-          color: #6B7280;
-          margin-bottom: 6px;
-        }
-
-        .goalSummaryCard strong {
-          font-size: 20px;
-        }
-
-        .goalCard {
-          border: 1px solid #E5E7EB;
-          border-radius: 14px;
-          padding: 18px;
-          margin-bottom: 16px;
-        }
-
-        .goalHeader {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-        }
-
-        .goalHeader h3 {
-          margin: 0 0 6px;
-        }
-
-        .goalType {
-          display: inline-block;
-          background: #F3F4F6;
-          color: #6B7280;
-          padding: 4px 9px;
-          border-radius: 999px;
-          font-size: 12px;
-        }
-
-        .goalActions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .editButton {
-          background: #E5E7EB;
-          color: #111827;
-          border: none;
-          padding: 8px 12px;
-          border-radius: 8px;
-          cursor: pointer;
-        }
-
-        .goalAmounts {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-          margin: 20px 0 14px;
-        }
-
-        .goalAmounts div {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .goalAmounts span {
-          color: #6B7280;
-          font-size: 13px;
-        }
-
-        .goalAmounts strong {
-          font-size: 16px;
-        }
-
-        .goalProgressHeader {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 7px;
-        }
-
-        .goalProgress {
-          width: 100%;
-          height: 11px;
-          background: #E5E7EB;
-          border-radius: 999px;
-          overflow: hidden;
-        }
-
-        .goalProgressBar {
-          height: 100%;
-          background: #6558D3;
-          border-radius: 999px;
-          transition: width 0.3s ease;
-        }
-
-        .goalStatus {
-          margin-top: 10px;
-          font-size: 14px;
-          color: #6B7280;
-        }
-
-        .goalCompleted {
-          color: #16A34A;
-          font-weight: bold;
-        }
-
-        .contributeButton {
-          margin-top: 14px;
-          width: 100%;
-        }
-
-        .contributionBox {
-          display: flex;
-          gap: 8px;
-          margin-top: 14px;
-        }
-
-        .contributionBox input {
-          flex: 1;
-        }
-
-        .emptyGoals {
-          text-align: center;
-          padding: 30px 10px;
-          color: #6B7280;
-        }
-
-        .emptyGoals h3 {
-          color: #111827;
-          margin-bottom: 6px;
-        }
-
-        @media (max-width: 768px) {
-          .goalSummary {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .goalAmounts {
-            grid-template-columns: 1fr;
-          }
-
-          .goalHeader {
-            flex-direction: column;
-          }
-
-          .goalActions {
-            width: 100%;
-          }
-
-          .goalActions button {
-            flex: 1;
-          }
-
-          .contributionBox {
-            flex-wrap: wrap;
-          }
-
-          .contributionBox input {
-            width: 100%;
-            flex-basis: 100%;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .goalSummary {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
-    </>
+      </section>
+    </div>
   );
 }
