@@ -1,165 +1,250 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-const categories = [
-  "Groceries",
-  "Shopping",
-  "Dining",
-  "Transport",
-  "Utilities",
-  "Health",
-  "Entertainment",
-];
+function createId() {
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
+}
 
-export default function Budgets({ transactions }) {
-  const [budgets, setBudgets] = useState(() => {
-    const saved = localStorage.getItem("ledgerly_budgets");
-    return saved ? JSON.parse(saved) : [];
-  });
+function currency(value) {
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+}
 
-  const [category, setCategory] = useState("Groceries");
+export default function Budgets({
+  budgets,
+  setBudgets,
+  transactions,
+  categories,
+}) {
+  const [category, setCategory] =
+    useState("Groceries");
+
   const [limit, setLimit] = useState("");
 
-  useEffect(() => {
-    localStorage.setItem(
-      "ledgerly_budgets",
-      JSON.stringify(budgets)
-    );
-  }, [budgets]);
-
-  const spentMap = useMemo(() => {
+  const spending = useMemo(() => {
     const map = {};
 
     transactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
-        map[t.category] = (map[t.category] || 0) + t.amount;
+        map[t.category] =
+          (map[t.category] || 0) + Number(t.amount);
       });
 
     return map;
   }, [transactions]);
 
-  function addBudget() {
-    if (!limit) return;
+  function createBudget(event) {
+    event.preventDefault();
 
-    if (budgets.some((b) => b.category === category)) {
-      alert("Budget already exists");
+    const numericLimit = Number(limit);
+
+    if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+      alert("Enter a valid monthly budget.");
+      return;
+    }
+
+    if (
+      budgets.some(
+        (budget) => budget.category === category
+      )
+    ) {
+      alert("A budget already exists for this category.");
       return;
     }
 
     setBudgets([
       ...budgets,
       {
-        id: crypto.randomUUID(),
+        id: createId(),
         category,
-        limit: Number(limit),
+        limit: numericLimit,
+        active: true,
       },
     ]);
 
     setLimit("");
   }
 
-  function removeBudget(id) {
-    setBudgets(budgets.filter((b) => b.id !== id));
+  function deleteBudget(id) {
+    if (!window.confirm("Delete this budget?")) {
+      return;
+    }
+
+    setBudgets(
+      budgets.filter((budget) => budget.id !== id)
+    );
   }
 
   return (
-    <>
-      <div className="panel">
-        <h2>Create Monthly Budget</h2>
-
-        <div className="row">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-
-          <input
-            type="number"
-            placeholder="Limit"
-            value={limit}
-            onChange={(e) => setLimit(e.target.value)}
-          />
+    <div className="pageStack">
+      <form
+        className="panel"
+        onSubmit={createBudget}
+      >
+        <div className="panelHeader">
+          <div>
+            <h2>Create Monthly Budget</h2>
+            <p>
+              Set a limit and Ledgerly will compare it
+              with your real expenses.
+            </p>
+          </div>
         </div>
 
-        <button onClick={addBudget}>
+        <div className="formGrid">
+          <label>
+            Category
+            <select
+              value={category}
+              onChange={(event) =>
+                setCategory(event.target.value)
+              }
+            >
+              {categories
+                .filter((item) => item !== "Income")
+                .map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+            </select>
+          </label>
+
+          <label>
+            Monthly Limit
+            <input
+              type="number"
+              min="1"
+              step="1"
+              placeholder="₹0"
+              value={limit}
+              onChange={(event) =>
+                setLimit(event.target.value)
+              }
+            />
+          </label>
+        </div>
+
+        <button className="primaryButton" type="submit">
           Create Budget
         </button>
-      </div>
+      </form>
 
-      <div className="panel">
-        <h2>Budget Overview</h2>
+      <section className="panel">
+        <div className="panelHeader">
+          <div>
+            <h2>Budget Overview</h2>
+            <p>
+              Spending is calculated from your
+              transactions.
+            </p>
+          </div>
+        </div>
 
         {budgets.length === 0 ? (
-          <p>No budgets created.</p>
+          <div className="emptyState">
+            <div className="emptyIcon">▣</div>
+            <h3>No budgets created</h3>
+            <p>
+              Create a monthly budget to start tracking
+              category spending.
+            </p>
+          </div>
         ) : (
-          budgets.map((b) => {
-            const spent = spentMap[b.category] || 0;
+          <div className="budgetGrid">
+            {budgets.map((budget) => {
+              const spent =
+                spending[budget.category] || 0;
 
-            const percent = Math.min(
-              100,
-              (spent / b.limit) * 100
-            );
+              const percentage =
+                budget.limit > 0
+                  ? Math.round(
+                      (spent / budget.limit) * 100
+                    )
+                  : 0;
 
-            const remaining = b.limit - spent;
+              const displayPercentage = Math.min(
+                percentage,
+                100
+              );
 
-            const exceeded = spent > b.limit;
+              const remaining =
+                budget.limit - spent;
 
-            return (
-              <div className="budgetCard" key={b.id}>
-                <div className="budgetHeader">
-                  <h3>{b.category}</h3>
+              const exceeded = remaining < 0;
 
-                  <button
-                    className="delete"
-                    onClick={() => removeBudget(b.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-
-                <div className="budgetRow">
-                  <span>Spent</span>
-
-                  <strong>
-                    ₹{spent.toLocaleString()} / ₹
-                    {b.limit.toLocaleString()}
-                  </strong>
-                </div>
-
-                <div className="progress">
-                  <div
-                    style={{
-                      width: `${percent}%`,
-                      background: exceeded
-                        ? "#DC2626"
-                        : "#6558D3",
-                    }}
-                  />
-                </div>
-
-                <p
-                  style={{
-                    color: exceeded
-                      ? "#DC2626"
-                      : "#16A34A",
-                    fontWeight: "bold",
-                  }}
+              return (
+                <div
+                  className="budgetCard"
+                  key={budget.id}
                 >
-                  {exceeded
-                    ? `Exceeded by ₹${Math.abs(
-                        remaining
-                      ).toLocaleString()}`
-                    : `Remaining ₹${remaining.toLocaleString()}`}
-                </p>
-              </div>
-            );
-          })
+                  <div className="budgetHeader">
+                    <div>
+                      <h3>{budget.category}</h3>
+                      <span>
+                        Monthly budget
+                      </span>
+                    </div>
+
+                    <button
+                      className="dangerButton smallButton"
+                      onClick={() =>
+                        deleteBudget(budget.id)
+                      }
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <div className="budgetAmounts">
+                    <strong>
+                      {currency(spent)}
+                    </strong>
+
+                    <span>
+                      of {currency(budget.limit)}
+                    </span>
+                  </div>
+
+                  <div className="progress">
+                    <div
+                      className={
+                        exceeded
+                          ? "progressFill danger"
+                          : "progressFill"
+                      }
+                      style={{
+                        width: `${displayPercentage}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="budgetFooter">
+                    <span>
+                      {percentage}% used
+                    </span>
+
+                    <strong
+                      className={
+                        exceeded
+                          ? "negative"
+                          : "positive"
+                      }
+                    >
+                      {exceeded
+                        ? `Over by ${currency(
+                            Math.abs(remaining)
+                          )}`
+                        : `${currency(
+                            remaining
+                          )} remaining`}
+                    </strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
-      </div>
-    </>
+      </section>
+    </div>
   );
 }
