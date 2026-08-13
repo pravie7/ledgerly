@@ -1,1 +1,119 @@
-body{margin:0;font-family:Inter,Arial;background:#f5f7fb}.wrap{max-width:1100px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}.card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}button{background:#6558D3;color:#fff;border:none;padding:10px 14px;border-radius:10px;cursor:pointer}input,select{width:100%;padding:10px;margin:6px 0;border:1px solid #ddd;border-radius:8px}.row{display:flex;gap:8px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #eee}
+body{
+  margin:0;
+  font-family:Inter,Arial,sans-serif;
+  background:#F5F7FB;
+}
+
+.layout{
+  display:flex;
+  min-height:100vh;
+}
+
+.sidebar{
+  width:220px;
+  background:#FFFFFF;
+  padding:20px;
+  border-right:1px solid #E5E7EB;
+}
+
+.sidebar h2{
+  color:#6558D3;
+}
+
+.nav{
+  padding:12px;
+  border-radius:10px;
+  cursor:pointer;
+  margin-bottom:6px;
+}
+
+.active{
+  background:#EDE9FE;
+  color:#6558D3;
+  font-weight:bold;
+}
+
+.content{
+  flex:1;
+  padding:24px;
+}
+
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:16px;
+}
+
+.card{
+  background:white;
+  padding:18px;
+  border-radius:16px;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);
+}
+
+.panel{
+  background:white;
+  padding:20px;
+  border-radius:16px;
+  margin-top:20px;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);
+}
+
+input,select{
+  width:100%;
+  padding:12px;
+  margin-bottom:10px;
+  border:1px solid #DDD;
+  border-radius:10px;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+}
+
+button{
+  background:#6558D3;
+  color:white;
+  border:none;
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+th,td{
+  padding:12px;
+  border-bottom:1px solid #EEE;
+  text-align:left;
+}
+
+.tx{
+  display:flex;
+  justify-content:space-between;
+  padding:12px 0;
+  border-bottom:1px solid #EEE;
+}
+
+@media(max-width:768px){
+
+  .layout{
+    flex-direction:column;
+  }
+
+  .sidebar{
+    width:100%;
+    display:flex;
+    overflow:auto;
+    gap:8px;
+  }
+
+  .nav{
+    white-space:nowrap;
+  }
+
+}
