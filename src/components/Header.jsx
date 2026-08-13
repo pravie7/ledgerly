@@ -1,17 +1,33 @@
-export default function Header({ page }) {
-  return (
-    <header className="topBar">
-      <div>
-        <div className="topBarTitle">{page}</div>
+export default function Header({ title = "Dashboard" }) {
+  const today = new Date();
 
-        <div className="topBarSubtitle">
-          Private Personal Finance Dashboard
-        </div>
+  const formattedDate = today.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <header className="topHeader">
+      <div>
+        <span className="headerEyebrow">
+          Personal Finance
+        </span>
+
+        <h1 className="headerTitle">
+          {title}
+        </h1>
       </div>
 
-      <div className="topBarStatus">
-        <span className="statusDot"></span>
-        Local
+      <div className="headerMeta">
+        <span className="headerPrivacy">
+          Private Personal Finance
+        </span>
+
+        <span className="headerDate">
+          {formattedDate}
+        </span>
       </div>
     </header>
   );
