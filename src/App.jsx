@@ -1,170 +1,247 @@
 import { useMemo, useState } from "react";
+import "./index.css";
 
-export default function App() {
-  const [tx, setTx] = useState([]);
-  const [merchant, setMerchant] = useState("");
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState("expense");
-  const [category, setCategory] = useState("Shopping");
+const pages = ["Dashboard","Transactions","Budgets","Goals","Settings"];
+
+export default function App(){
+
+  const [page,setPage]=useState("Dashboard");
+
+  const [transactions,setTransactions]=useState([]);
+
+  const [merchant,setMerchant]=useState("");
+  const [amount,setAmount]=useState("");
+  const [type,setType]=useState("expense");
+  const [category,setCategory]=useState("Shopping");
 
   const income = useMemo(
-    () => tx.filter(t => t.type === "income").reduce((a,b)=>a+b.amount,0),
-    [tx]
+    ()=>transactions.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0),
+    [transactions]
   );
 
   const spending = useMemo(
-    () => tx.filter(t => t.type === "expense").reduce((a,b)=>a+b.amount,0),
-    [tx]
+    ()=>transactions.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0),
+    [transactions]
   );
 
-  const savings = income === 0 ? 0 : Math.round(((income-spending)/income)*100);
+  const savings = income===0?0:Math.round(((income-spending)/income)*100);
 
-  function addTransaction() {
-    if (!merchant || !amount) return;
+  function addTransaction(){
 
-    setTx([
+    if(!merchant || !amount) return;
+
+    setTransactions([
       {
         merchant,
-        amount: Number(amount),
+        amount:Number(amount),
         type,
         category,
-        date: new Date().toISOString().slice(0,10)
+        date:new Date().toISOString().slice(0,10)
       },
-      ...tx
+      ...transactions
     ]);
 
     setMerchant("");
     setAmount("");
   }
 
-  return (
-    <div style={{background:"#F5F7FB",minHeight:"100vh",padding:24,fontFamily:"Arial"}}>
-      <h1 style={{color:"#6558D3",marginBottom:0}}>Ledgerly</h1>
-      <p style={{color:"#666"}}>Private Personal Finance Dashboard</p>
+  return(
+    <div className="layout">
 
-      <div style={{
-        display:"grid",
-        gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",
-        gap:16,
-        marginTop:20
-      }}>
-        <Card title="Income" value={`₹${income}`} color="#16A34A"/>
-        <Card title="Spending" value={`₹${spending}`} color="#EA580C"/>
-        <Card title="Savings Rate" value={`${savings}%`} color="#2563EB"/>
-        <Card title="Transactions" value={tx.length} color="#6558D3"/>
-      </div>
+      <aside className="sidebar">
 
-      <div style={panel}>
-        <h2>Add Transaction</h2>
+        <h2>Ledgerly</h2>
 
-        <input
-          placeholder="Merchant"
-          value={merchant}
-          onChange={e=>setMerchant(e.target.value)}
-          style={input}
-        />
+        {pages.map(p=>(
+          <div
+            key={p}
+            className={page===p?"nav active":"nav"}
+            onClick={()=>setPage(p)}
+          >
+            {p}
+          </div>
+        ))}
 
-        <input
-          type="number"
-          placeholder="Amount"
-          value={amount}
-          onChange={e=>setAmount(e.target.value)}
-          style={input}
-        />
+      </aside>
 
-        <div style={{display:"flex",gap:10}}>
-          <select value={type} onChange={e=>setType(e.target.value)} style={input}>
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-          </select>
+      <main className="content">
 
-          <select value={category} onChange={e=>setCategory(e.target.value)} style={input}>
-            <option>Shopping</option>
-            <option>Groceries</option>
-            <option>Dining</option>
-            <option>Transport</option>
-            <option>Utilities</option>
-          </select>
+        <div className="header">
+          <h1>{page}</h1>
+          <p>Private Personal Finance</p>
         </div>
 
-        <button onClick={addTransaction} style={button}>
-          + Add
-        </button>
-      </div>
+        {page==="Dashboard" && (
 
-      <div style={panel}>
-        <h2>Recent Transactions</h2>
+          <>
+            <div className="cards">
 
-        {tx.length===0 ? (
-          <p>No transactions yet.</p>
-        ) : (
-          <table width="100%" cellPadding="10">
-            <thead>
-              <tr align="left">
-                <th>Date</th>
-                <th>Merchant</th>
-                <th>Category</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tx.map((t,i)=>(
-                <tr key={i}>
-                  <td>{t.date}</td>
-                  <td>{t.merchant}</td>
-                  <td>{t.category}</td>
-                  <td style={{
-                    color:t.type==="income"?"#16A34A":"#111827",
-                    fontWeight:"bold"
-                  }}>
-                    {t.type==="income"?"+":"-"}₹{t.amount}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              <Card title="Income" value={`₹${income}`} color="#16A34A"/>
+
+              <Card title="Spending" value={`₹${spending}`} color="#EA580C"/>
+
+              <Card title="Savings" value={`${savings}%`} color="#2563EB"/>
+
+              <Card title="Transactions" value={transactions.length} color="#6558D3"/>
+
+            </div>
+
+            <div className="panel">
+              <h2>Recent Activity</h2>
+
+              {transactions.length===0?
+
+                <p>No transactions yet.</p>
+
+                :
+
+                transactions.slice(0,5).map((t,i)=>(
+                  <div className="tx" key={i}>
+                    <div>
+                      <strong>{t.merchant}</strong>
+                      <br/>
+                      <small>{t.date} · {t.category}</small>
+                    </div>
+
+                    <div
+                      style={{
+                        color:t.type==="income"?"#16A34A":"#111827",
+                        fontWeight:"bold"
+                      }}
+                    >
+                      {t.type==="income"?"+":"-"}₹{t.amount}
+                    </div>
+
+                  </div>
+                ))
+
+              }
+
+            </div>
+          </>
+
         )}
-      </div>
+
+        {page==="Transactions" && (
+
+          <>
+            <div className="panel">
+
+              <h2>Add Transaction</h2>
+
+              <input
+                placeholder="Merchant"
+                value={merchant}
+                onChange={e=>setMerchant(e.target.value)}
+              />
+
+              <input
+                type="number"
+                placeholder="Amount"
+                value={amount}
+                onChange={e=>setAmount(e.target.value)}
+              />
+
+              <div className="row">
+
+                <select value={type} onChange={e=>setType(e.target.value)}>
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                </select>
+
+                <select value={category} onChange={e=>setCategory(e.target.value)}>
+                  <option>Shopping</option>
+                  <option>Groceries</option>
+                  <option>Dining</option>
+                  <option>Transport</option>
+                  <option>Utilities</option>
+                </select>
+
+              </div>
+
+              <button onClick={addTransaction}>
+                Add
+              </button>
+
+            </div>
+
+            <div className="panel">
+
+              <h2>All Transactions</h2>
+
+              <table>
+
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Merchant</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+
+                  {transactions.map((t,i)=>(
+
+                    <tr key={i}>
+                      <td>{t.date}</td>
+                      <td>{t.merchant}</td>
+                      <td>{t.category}</td>
+                      <td>{t.type==="income"?"+":"-"}₹{t.amount}</td>
+                    </tr>
+
+                  ))}
+
+                </tbody>
+
+              </table>
+
+            </div>
+          </>
+
+        )}
+
+        {page==="Budgets" && (
+          <div className="panel">
+            <h2>Budgets</h2>
+            <p>Create monthly spending limits.</p>
+          </div>
+        )}
+
+        {page==="Goals" && (
+          <div className="panel">
+            <h2>Savings Goals</h2>
+            <p>Track your emergency fund and future purchases.</p>
+          </div>
+        )}
+
+        {page==="Settings" && (
+          <div className="panel">
+            <h2>Settings</h2>
+            <p>Database, Categories, Accounts and Backup.</p>
+          </div>
+        )}
+
+      </main>
+
     </div>
-  );
+  )
+
 }
 
 function Card({title,value,color}){
+
   return(
-    <div style={{
-      background:"#fff",
-      padding:18,
-      borderRadius:16,
-      boxShadow:"0 1px 3px rgba(0,0,0,.08)"
-    }}>
-      <div style={{color:"#666",fontSize:13}}>{title}</div>
-      <div style={{fontSize:30,fontWeight:"bold",color}}>{value}</div>
+    <div className="card">
+
+      <small>{title}</small>
+
+      <h2 style={{color}}>
+        {value}
+      </h2>
+
     </div>
   )
-}
 
-const panel={
-  background:"#fff",
-  borderRadius:16,
-  padding:20,
-  marginTop:20,
-  boxShadow:"0 1px 3px rgba(0,0,0,.08)"
-}
-
-const input={
-  width:"100%",
-  padding:12,
-  borderRadius:10,
-  border:"1px solid #ddd",
-  marginBottom:10
-}
-
-const button={
-  background:"#6558D3",
-  color:"#fff",
-  border:"none",
-  padding:"12px 18px",
-  borderRadius:10,
-  cursor:"pointer",
-  fontWeight:"bold"
 }
