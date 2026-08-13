@@ -86,7 +86,9 @@ export default function App() {
           />
         )}
 
-        {page === "Budgets" && <Budgets />}
+        {page === "Budgets" && (
+          <Budgets transactions={transactions} />
+        )}
 
         {page === "Goals" && <Goals />}
 
