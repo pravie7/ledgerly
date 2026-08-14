@@ -25,6 +25,7 @@ const initialState = {
   documents: [],
   rules: [],
   tags: [],
+  accounts: [],
   categories: [
     "Housing",
     "Groceries",
@@ -40,22 +41,31 @@ const initialState = {
     "Needs review",
     "Other",
   ],
-  accounts: [],
-  assets: 0,
-  liabilities: 0,
-  netWorthConfigured: false,
+  investments: {
+    assets: [
+      { name: "Bank Balance", value: 0 },
+      { name: "EPF", value: 0 },
+      { name: "PPF", value: 0 },
+      { name: "Mutual Funds", value: 0 },
+      { name: "Gold", value: 0 },
+      { name: "Land", value: 0 },
+      { name: "Car", value: 0 },
+    ],
+    liabilities: [
+      { name: "Home Loan", value: 0 },
+      { name: "Car Loan", value: 0 },
+      { name: "Credit Card", value: 0 },
+      { name: "Personal Loan", value: 0 },
+    ],
+  },
 };
 
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-
-    if (!saved) return initialState;
-
-    return {
-      ...initialState,
-      ...JSON.parse(saved),
-    };
+    return saved
+      ? { ...initialState, ...JSON.parse(saved) }
+      : initialState;
   } catch {
     return initialState;
   }
@@ -65,205 +75,258 @@ export default function App() {
   const [page, setPage] = useState("Dashboard");
   const [state, setState] = useState(loadState);
 
-  const {
-    transactions,
-    budgets,
-    goals,
-    recurring,
-    subscriptions,
-    documents,
-    rules,
-    tags,
-    categories,
-    accounts,
-    assets,
-    liabilities,
-    netWorthConfigured,
-  } = state;
-
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
   function updateState(updates) {
-    setState((current) => ({
-      ...current,
-      ...updates,
-    }));
+    setState((prev) => ({ ...prev, ...updates }));
   }
 
-  const income = useMemo(() => {
-    return transactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-  }, [transactions]);
+  const income = useMemo(
+    () =>
+      state.transactions
+        .filter((t) => t.type === "income")
+        .reduce((s, t) => s + Number(t.amount), 0),
+    [state.transactions]
+  );
 
-  const spending = useMemo(() => {
-    return transactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-  }, [transactions]);
+  const spending = useMemo(
+    () =>
+      state.transactions
+        .filter((t) => t.type === "expense")
+        .reduce((s, t) => s + Number(t.amount), 0),
+    [state.transactions]
+  );
 
   const savings = income - spending;
-
   const savingsRate =
     income > 0 ? Math.round((savings / income) * 100) : 0;
 
-  const netWorth = assets - liabilities;
+  const totalAssets = state.investments.assets.reduce(
+    (s, a) => s + Number(a.value),
+    0
+  );
 
-  function resetAllData() {
-    const confirmText = window.prompt(
-      'Type "DELETE ALL LEDGERLY DATA" to reset everything.'
+  const totalLiabilities =
+    state.investments.liabilities.reduce(
+      (s, l) => s + Number(l.value),
+      0
     );
 
-    if (confirmText !== "DELETE ALL LEDGERLY DATA") return;
+  const netWorth = totalAssets - totalLiabilities;
 
-    setState({
-      ...initialState,
-      categories: [...initialState.categories],
-    });
+  function resetAllData() {
+    if (
+      prompt(
+        'Type "DELETE ALL LEDGERLY DATA"'
+      ) !== "DELETE ALL LEDGERLY DATA"
+    )
+      return;
 
+    setState(initialState);
     setPage("Dashboard");
   }
 
-  function renderPage() {
-    switch (page) {
-      case "Dashboard":
-        return (
-          <Dashboard
-            transactions={transactions}
-            income={income}
-            spending={spending}
-            savings={savings}
-            savingsRate={savingsRate}
-            netWorth={netWorth}
-            netWorthConfigured={netWorthConfigured}
-            budgets={budgets}
-            goals={goals}
-          />
-        );
+  switch (page) {
+    case "Dashboard":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Dashboard
+                transactions={state.transactions}
+                income={income}
+                spending={spending}
+                savings={savings}
+                savingsRate={savingsRate}
+                netWorth={netWorth}
+                netWorthConfigured={totalAssets > 0}
+                budgets={state.budgets}
+                goals={state.goals}
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Transactions":
-        return (
-          <Transactions
-            transactions={transactions}
-            setTransactions={(value) =>
-              updateState({ transactions: value })
-            }
-            categories={categories}
-            accounts={accounts}
-            tags={tags}
-          />
-        );
+    case "Transactions":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Transactions
+                transactions={state.transactions}
+                setTransactions={(v) =>
+                  updateState({ transactions: v })
+                }
+                categories={state.categories}
+                accounts={state.accounts}
+                tags={state.tags}
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Recurring":
-        return (
-          <Recurring
-            recurring={recurring}
-            setRecurring={(value) =>
-              updateState({ recurring: value })
-            }
-            categories={categories}
-            accounts={accounts}
-          />
-        );
+    case "Recurring":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Recurring
+                recurring={state.recurring}
+                setRecurring={(v) =>
+                  updateState({ recurring: v })
+                }
+                categories={state.categories}
+                accounts={state.accounts}
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Subscriptions":
-        return (
-          <Subscriptions
-            subscriptions={subscriptions}
-            setSubscriptions={(value) =>
-              updateState({ subscriptions: value })
-            }
-            categories={categories}
-            accounts={accounts}
-          />
-        );
+    case "Subscriptions":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Subscriptions
+                subscriptions={state.subscriptions}
+                setSubscriptions={(v) =>
+                  updateState({ subscriptions: v })
+                }
+                categories={state.categories}
+                accounts={state.accounts}
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Budgets":
-        return (
-          <Budgets
-            budgets={budgets}
-            setBudgets={(value) =>
-              updateState({ budgets: value })
-            }
-            transactions={transactions}
-            categories={categories}
-          />
-        );
+    case "Budgets":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Budgets
+                budgets={state.budgets}
+                setBudgets={(v) =>
+                  updateState({ budgets: v })
+                }
+                transactions={state.transactions}
+                categories={state.categories}
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Goals":
-        return (
-          <Goals
-            goals={goals}
-            setGoals={(value) =>
-              updateState({ goals: value })
-            }
-          />
-        );
+    case "Goals":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Goals
+                goals={state.goals}
+                setGoals={(v) =>
+                  updateState({ goals: v })
+                }
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Investments":
-        return <Investments />;
+    case "Investments":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Investments
+                investments={state.investments}
+                setInvestments={(v) =>
+                  updateState({ investments: v })
+                }
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Documents":
-        return (
-          <Documents
-            documents={documents}
-            setDocuments={(value) =>
-              updateState({ documents: value })
-            }
-          />
-        );
+    case "Documents":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Documents
+                documents={state.documents}
+                setDocuments={(v) =>
+                  updateState({ documents: v })
+                }
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Rules":
-        return (
-          <Rules
-            rules={rules}
-            setRules={(value) => updateState({ rules: value })}
-            categories={categories}
-          />
-        );
+    case "Rules":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Rules
+                rules={state.rules}
+                setRules={(v) => updateState({ rules: v })}
+                categories={state.categories}
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      case "Settings":
-        return (
-          <Settings
-            assets={assets}
-            liabilities={liabilities}
-            netWorthConfigured={netWorthConfigured}
-            categories={categories}
-            accounts={accounts}
-            tags={tags}
-            setSettings={updateState}
-            resetAllData={resetAllData}
-          />
-        );
+    case "Settings":
+      return (
+        <div className="appShell">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="mainArea">
+            <Header page={page} />
+            <main className="pageContent">
+              <Settings
+                assets={totalAssets}
+                liabilities={totalLiabilities}
+                netWorthConfigured={totalAssets > 0}
+                categories={state.categories}
+                accounts={state.accounts}
+                tags={state.tags}
+                setSettings={updateState}
+                resetAllData={resetAllData}
+              />
+            </main>
+          </div>
+        </div>
+      );
 
-      default:
-        return (
-          <Dashboard
-            transactions={transactions}
-            income={income}
-            spending={spending}
-            savings={savings}
-            savingsRate={savingsRate}
-            netWorth={netWorth}
-            netWorthConfigured={netWorthConfigured}
-            budgets={budgets}
-            goals={goals}
-          />
-        );
-    }
+    default:
+      return null;
   }
-
-  return (
-    <div className="appShell">
-      <Sidebar page={page} setPage={setPage} />
-
-      <div className="mainArea">
-        <Header page={page} />
-
-        <main className="pageContent">{renderPage()}</main>
-      </div>
-    </div>
-  );
 }
