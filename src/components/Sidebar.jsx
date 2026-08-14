@@ -1,63 +1,41 @@
 const menus = [
-  { name: "Dashboard", icon: "📊" },
-  { name: "Transactions", icon: "💳" },
-  { name: "Recurring", icon: "🔁" },
-  { name: "Subscriptions", icon: "📅" },
-  { name: "Budgets", icon: "🎯" },
-  { name: "Goals", icon: "💰" },
-  { name: "Documents", icon: "📄" },
-  { name: "Rules", icon: "⚙️" },
-  { name: "Settings", icon: "🛠️" },
+  ["Dashboard", "📊"],
+  ["Transactions", "💳"],
+  ["Recurring", "🔁"],
+  ["Subscriptions", "📅"],
+  ["Budgets", "🎯"],
+  ["Goals", "💰"],
+  ["Investments", "📈"],
+  ["Documents", "📄"],
+  ["Rules", "⚙️"],
+  ["Settings", "🛠️"],
 ];
 
 export default function Sidebar({ page, setPage }) {
   return (
-    <>
-      {/* Desktop Sidebar */}
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brandMark">₹</div>
+    <aside className="sidebar">
+      <div className="logo">
+        <h2>₹ Ledgerly</h2>
+        <small>Personal Finance OS</small>
+      </div>
 
-          <div>
-            <div className="brandName">Ledgerly</div>
-            <div className="brandSubtitle">Personal Finance OS</div>
-          </div>
-        </div>
-
-        <nav className="desktopNavigation">
-          {menus.map((item) => (
-            <button
-              key={item.name}
-              className={`navItem ${page === item.name ? "active" : ""}`}
-              onClick={() => setPage(item.name)}
-            >
-              <span className="navIcon">{item.icon}</span>
-              {item.name}
-            </button>
-          ))}
-        </nav>
-
-        <div className="sidebarFooter">
-          <div>Ledgerly v3.2</div>
-          <div>Offline Ready</div>
-        </div>
-      </aside>
-
-      {/* Mobile Bottom Navigation */}
-      <nav className="mobileNavigation">
-        {menus.slice(0, 5).map((item) => (
+      <nav>
+        {menus.map(([name, icon]) => (
           <button
-            key={item.name}
-            className={`mobileNavItem ${
-              page === item.name ? "active" : ""
-            }`}
-            onClick={() => setPage(item.name)}
+            key={name}
+            className={page === name ? "active" : ""}
+            onClick={() => setPage(name)}
           >
-            <span>{item.icon}</span>
-            <small>{item.name}</small>
+            <span>{icon}</span>
+            {name}
           </button>
         ))}
       </nav>
-    </>
+
+      <div className="version">
+        <small>Ledgerly v4.0</small>
+        <p>Cloud Sync Enabled</p>
+      </div>
+    </aside>
   );
 }
