@@ -4,38 +4,98 @@ export default function Investments({
   investments,
   setInvestments,
 }) {
-  const assets = investments.assets;
-  const liabilities = investments.liabilities;
+  const assets = investments.assets || [];
+  const liabilities = investments.liabilities || [];
 
   const totalAssets = useMemo(
     () =>
-      assets.reduce((s, a) => s + Number(a.value), 0),
+      assets.reduce((sum, item) => sum + Number(item.value || 0), 0),
     [assets]
   );
 
   const totalLiabilities = useMemo(
     () =>
-      liabilities.reduce(
-        (s, l) => s + Number(l.value),
-        0
-      ),
+      liabilities.reduce((sum, item) => sum + Number(item.value || 0), 0),
     [liabilities]
   );
 
   const netWorth = totalAssets - totalLiabilities;
 
   function updateAsset(index, value) {
-    const copy = [...assets];
-    copy[index].value = Number(value);
-    setInvestments({ ...investments, assets: copy });
+    const updated = [...assets];
+    updated[index].value = Number(value);
+    setInvestments({
+      ...investments,
+      assets: updated,
+    });
   }
 
   function updateLiability(index, value) {
-    const copy = [...liabilities];
-    copy[index].value = Number(value);
+    const updated = [...liabilities];
+    updated[index].value = Number(value);
     setInvestments({
       ...investments,
-      liabilities: copy,
+      liabilities: updated,
+    });
+  }
+
+  function addAsset() {
+    setInvestments({
+      ...investments,
+      assets: [
+        ...assets,
+        {
+          name: "New Asset",
+          value: 0,
+        },
+      ],
+    });
+  }
+
+  function addLiability() {
+    setInvestments({
+      ...investments,
+      liabilities: [
+        ...liabilities,
+        {
+          name: "New Liability",
+          value: 0,
+        },
+      ],
+    });
+  }
+
+  function renameAsset(index, name) {
+    const updated = [...assets];
+    updated[index].name = name;
+    setInvestments({
+      ...investments,
+      assets: updated,
+    });
+  }
+
+  function renameLiability(index, name) {
+    const updated = [...liabilities];
+    updated[index].name = name;
+    setInvestments({
+      ...investments,
+      liabilities: updated,
+    });
+  }
+
+  function deleteAsset(index) {
+    const updated = assets.filter((_, i) => i !== index);
+    setInvestments({
+      ...investments,
+      assets: updated,
+    });
+  }
+
+  function deleteLiability(index) {
+    const updated = liabilities.filter((_, i) => i !== index);
+    setInvestments({
+      ...investments,
+      liabilities: updated,
     });
   }
 
@@ -50,7 +110,7 @@ export default function Investments({
         </div>
 
         <div className="card">
-          <small>Liabilities</small>
+          <small>Total Liabilities</small>
           <h2 style={{ color: "#DC2626" }}>
             ₹{totalLiabilities.toLocaleString()}
           </h2>
@@ -62,95 +122,95 @@ export default function Investments({
             ₹{netWorth.toLocaleString()}
           </h2>
         </div>
-
-        <div className="card">
-          <small>Debt Ratio</small>
-          <h2>
-            {totalAssets === 0
-              ? 0
-              : Math.round(
-                  (totalLiabilities / totalAssets) * 100
-                )}
-            %
-          </h2>
-        </div>
       </div>
 
       <div className="grid2">
         <div className="panel">
-          <h2>Assets</h2>
+          <div className="budgetRow" style={{ marginBottom: 18 }}>
+            <h2>Assets</h2>
 
-          {assets.map((item, index) => (
-            <div
-              key={item.name}
-              className="budgetRow"
-              style={{ marginBottom: 14 }}
-            >
-              <span>{item.name}</span>
+            <button onClick={addAsset}>+ Add</button>
+          </div>
 
+          {assets.map((asset, index) => (
+            <div key={index} style={{ marginBottom: 16 }}>
               <input
-                type="number"
-                value={item.value}
-                onChange={(e) =>
-                  updateAsset(index, e.target.value)
-                }
-                style={{ width: 140 }}
+                value={asset.name}
+                onChange={(e) => renameAsset(index, e.target.value)}
+                style={{ marginBottom: 8 }}
               />
+
+              <div className="row">
+                <input
+                  type="number"
+                  value={asset.value}
+                  onChange={(e) => updateAsset(index, e.target.value)}
+                />
+
+                <button
+                  className="delete"
+                  onClick={() => deleteAsset(index)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
 
         <div className="panel">
-          <h2>Liabilities</h2>
+          <div className="budgetRow" style={{ marginBottom: 18 }}>
+            <h2>Liabilities</h2>
 
-          {liabilities.map((item, index) => (
-            <div
-              key={item.name}
-              className="budgetRow"
-              style={{ marginBottom: 14 }}
-            >
-              <span>{item.name}</span>
+            <button onClick={addLiability}>+ Add</button>
+          </div>
 
+          {liabilities.map((loan, index) => (
+            <div key={index} style={{ marginBottom: 16 }}>
               <input
-                type="number"
-                value={item.value}
-                onChange={(e) =>
-                  updateLiability(index, e.target.value)
-                }
-                style={{ width: 140 }}
+                value={loan.name}
+                onChange={(e) => renameLiability(index, e.target.value)}
+                style={{ marginBottom: 8 }}
               />
+
+              <div className="row">
+                <input
+                  type="number"
+                  value={loan.value}
+                  onChange={(e) => updateLiability(index, e.target.value)}
+                />
+
+                <button
+                  className="delete"
+                  onClick={() => deleteLiability(index)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
       <div className="panel">
-        <h2>Asset Allocation</h2>
+        <h2>Net Worth Summary</h2>
 
-        {assets.map((item) => {
-          const pct =
-            totalAssets === 0
-              ? 0
-              : Math.round(
-                  (item.value / totalAssets) * 100
-                );
-
-          return (
-            <div
-              key={item.name}
-              style={{ marginBottom: 18 }}
-            >
-              <div className="budgetRow">
-                <span>{item.name}</span>
-                <strong>{pct}%</strong>
-              </div>
-
-              <div className="progress">
-                <div style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          );
-        })}
+        <table>
+          <tbody>
+            <tr>
+              <td>Total Assets</td>
+              <td>₹{totalAssets.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td>Total Liabilities</td>
+              <td>₹{totalLiabilities.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <th>Net Worth</th>
+              <th>₹{netWorth.toLocaleString()}</th>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
