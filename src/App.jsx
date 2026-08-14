@@ -16,6 +16,7 @@ import Investments from "./pages/Investments";
 import Reports from "./pages/Reports";
 import Documents from "./pages/Documents";
 import Rules from "./pages/Rules";
+import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 
 const STORAGE_KEY = "ledgerly_state";
@@ -46,8 +47,21 @@ const initialState = {
     "Other",
   ],
   investments: {
-    assets: [],
-    liabilities: [],
+    assets: [
+      { name: "Bank Balance", value: 0 },
+      { name: "EPF", value: 0 },
+      { name: "PPF", value: 0 },
+      { name: "Mutual Funds", value: 0 },
+      { name: "Gold", value: 0 },
+      { name: "Land", value: 0 },
+      { name: "Car", value: 0 },
+    ],
+    liabilities: [
+      { name: "Home Loan", value: 0 },
+      { name: "Car Loan", value: 0 },
+      { name: "Credit Card", value: 0 },
+      { name: "Personal Loan", value: 0 },
+    ],
   },
 };
 
@@ -66,6 +80,7 @@ export default function App() {
   const [page, setPage] = useState("Dashboard");
   const [state, setState] = useState(loadState);
 
+  // Cloud sync
   useEffect(() => {
     async function loadCloud() {
       try {
@@ -74,11 +89,15 @@ export default function App() {
           ...prev,
           transactions: data,
         }));
-      } catch {}
+      } catch (err) {
+        console.log("Cloud sync unavailable");
+      }
     }
+
     loadCloud();
   }, []);
 
+  // Local persistence
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
@@ -86,25 +105,30 @@ export default function App() {
   const updateState = (updates) =>
     setState((prev) => ({ ...prev, ...updates }));
 
+  // Ignore internal transfers for finance reports
+  const financialTransactions = useMemo(
+    () => state.transactions.filter((t) => !t.transfer),
+    [state.transactions]
+  );
+
   const income = useMemo(
     () =>
-      state.transactions
+      financialTransactions
         .filter((t) => t.type === "income")
-        .filter((t) => !t.transfer)
         .reduce((s, t) => s + Number(t.amount), 0),
-    [state.transactions]
+    [financialTransactions]
   );
 
   const spending = useMemo(
     () =>
-      state.transactions
+      financialTransactions
         .filter((t) => t.type === "expense")
-        .filter((t) => !t.transfer)
         .reduce((s, t) => s + Number(t.amount), 0),
-    [state.transactions]
+    [financialTransactions]
   );
 
   const savings = income - spending;
+
   const savingsRate =
     income > 0 ? Math.round((savings / income) * 100) : 0;
 
@@ -122,12 +146,11 @@ export default function App() {
   const netWorth = totalAssets - totalLiabilities;
 
   function resetAllData() {
-    if (
-      window.prompt(
-        'Type "DELETE ALL LEDGERLY DATA"'
-      ) !== "DELETE ALL LEDGERLY DATA"
-    )
-      return;
+    const confirm = window.prompt(
+      'Type "DELETE ALL LEDGERLY DATA"'
+    );
+
+    if (confirm !== "DELETE ALL LEDGERLY DATA") return;
 
     localStorage.removeItem(STORAGE_KEY);
     setState(initialState);
@@ -139,9 +162,7 @@ export default function App() {
       case "Dashboard":
         return (
           <Dashboard
-            transactions={state.transactions.filter(
-              (t) => !t.transfer
-            )}
+            transactions={financialTransactions}
             income={income}
             spending={spending}
             savings={savings}
@@ -156,19 +177,16 @@ export default function App() {
       case "Transactions":
         return (
           <Transactions
-            transactions={state.transactions.filter(
-              (t) => !t.transfer
-            )}
-            setTransactions={(v) =>
+            transactions={financialTransactions}
+            setTransactions={(value) => {
+              const transfers = state.transactions.filter(
+                (t) => t.transfer
+              );
+
               updateState({
-                transactions: [
-                  ...v,
-                  ...state.transactions.filter(
-                    (t) => t.transfer
-                  ),
-                ],
-              })
-            }
+                transactions: [...value, ...transfers],
+              });
+            }}
             categories={state.categories}
             accounts={state.accounts}
             tags={state.tags}
@@ -179,8 +197,8 @@ export default function App() {
         return (
           <Accounts
             accounts={state.accounts}
-            setAccounts={(v) =>
-              updateState({ accounts: v })
+            setAccounts={(value) =>
+              updateState({ accounts: value })
             }
             transactions={state.transactions}
           />
@@ -191,8 +209,8 @@ export default function App() {
           <Transfers
             accounts={state.accounts}
             transactions={state.transactions}
-            setTransactions={(v) =>
-              updateState({ transactions: v })
+            setTransactions={(value) =>
+              updateState({ transactions: value })
             }
           />
         );
@@ -201,8 +219,12 @@ export default function App() {
         return (
           <Recurring
             recurring={state.recurring}
-            setRecurring={(v) =>
-              updateState({ recurring: v })
+            setRecurring={(value) =>
+              updateState({ recurring: value })
+            }
+            transactions={state.transactions}
+            setTransactions={(value) =>
+              updateState({ transactions: value })
             }
             categories={state.categories}
             accounts={state.accounts}
@@ -213,8 +235,8 @@ export default function App() {
         return (
           <Subscriptions
             subscriptions={state.subscriptions}
-            setSubscriptions={(v) =>
-              updateState({ subscriptions: v })
+            setSubscriptions={(value) =>
+              updateState({ subscriptions: value })
             }
             categories={state.categories}
             accounts={state.accounts}
@@ -225,12 +247,10 @@ export default function App() {
         return (
           <Budgets
             budgets={state.budgets}
-            setBudgets={(v) =>
-              updateState({ budgets: v })
+            setBudgets={(value) =>
+              updateState({ budgets: value })
             }
-            transactions={state.transactions.filter(
-              (t) => !t.transfer
-            )}
+            transactions={financialTransactions}
             categories={state.categories}
           />
         );
@@ -239,8 +259,8 @@ export default function App() {
         return (
           <Goals
             goals={state.goals}
-            setGoals={(v) =>
-              updateState({ goals: v })
+            setGoals={(value) =>
+              updateState({ goals: value })
             }
           />
         );
@@ -249,27 +269,23 @@ export default function App() {
         return (
           <Investments
             investments={state.investments}
-            setInvestments={(v) =>
-              updateState({ investments: v })
+            setInvestments={(value) =>
+              updateState({ investments: value })
             }
           />
         );
 
       case "Reports":
         return (
-          <Reports
-            transactions={state.transactions.filter(
-              (t) => !t.transfer
-            )}
-          />
+          <Reports transactions={financialTransactions} />
         );
 
       case "Documents":
         return (
           <Documents
             documents={state.documents}
-            setDocuments={(v) =>
-              updateState({ documents: v })
+            setDocuments={(value) =>
+              updateState({ documents: value })
             }
           />
         );
@@ -278,10 +294,20 @@ export default function App() {
         return (
           <Rules
             rules={state.rules}
-            setRules={(v) =>
-              updateState({ rules: v })
+            setRules={(value) =>
+              updateState({ rules: value })
             }
             categories={state.categories}
+          />
+        );
+
+      case "Notifications":
+        return (
+          <Notifications
+            transactions={state.transactions}
+            budgets={state.budgets}
+            recurring={state.recurring}
+            accounts={state.accounts}
           />
         );
 
