@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { getTransactions, addTransaction } from "../services/api";
+import {
+  getTransactions,
+  addTransaction,
+} from "../services/api";
+import {
+  parseCSV,
+  normalizeTransaction,
+  removeDuplicates,
+} from "../services/csvImport";
 
 export default function Transactions({
   transactions,
@@ -20,6 +28,7 @@ export default function Transactions({
   );
   const [note, setNote] = useState("");
   const [date, setDate] = useState(today);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -28,25 +37,32 @@ export default function Transactions({
         if (Array.isArray(data)) {
           setTransactions(data);
         }
-      } catch (err) {
-        console.log("API not available yet");
+      } catch {
+        console.log("Using local data");
       }
     }
 
     load();
   }, []);
 
-  const income = useMemo(() => {
-    return transactions
-      .filter((t) => t.type === "income")
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [transactions]);
+  const filtered = useMemo(() => {
+    return transactions.filter((t) => {
+      const value = search.toLowerCase();
 
-  const expense = useMemo(() => {
-    return transactions
-      .filter((t) => t.type === "expense")
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [transactions]);
+      return (
+        t.merchant.toLowerCase().includes(value) ||
+        t.category.toLowerCase().includes(value)
+      );
+    });
+  }, [transactions, search]);
+
+  const income = filtered
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + Number(t.amount), 0);
+
+  const expense = filtered
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + Number(t.amount), 0);
 
   async function createTransaction() {
     if (!merchant || !amount) return;
@@ -64,36 +80,73 @@ export default function Transactions({
 
     try {
       await addTransaction(tx);
+
       const latest = await getTransactions();
       setTransactions(latest);
     } catch {
       setTransactions([tx, ...transactions]);
     }
 
+    resetForm();
+  }
+
+  function resetForm() {
     setMerchant("");
     setAmount("");
+    setType("expense");
+    setCategory(categories[0] || "Other");
+    setAccount(accounts[0]?.name || "Cash");
     setNote("");
     setDate(today);
+  }
+
+  async function importCSV(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const text = await file.text();
+
+    const rows = parseCSV(text);
+
+    const converted = rows.map((r) =>
+      normalizeTransaction(r, [])
+    );
+
+    const unique = removeDuplicates(
+      transactions,
+      converted
+    );
+
+    const updated = [...unique, ...transactions];
+
+    setTransactions(updated);
+
+    alert(`${unique.length} new transactions imported`);
+
+    event.target.value = "";
   }
 
   function deleteTransaction(id) {
     if (!confirm("Delete this transaction?")) return;
 
-    setTransactions(transactions.filter((t) => t.id !== id));
+    setTransactions(
+      transactions.filter((t) => t.id !== id)
+    );
   }
 
   return (
     <div className="dashboard">
       <div className="cards">
         <div className="card">
-          <small>Total Income</small>
+          <small>Income</small>
           <h2 style={{ color: "#16A34A" }}>
             ₹{income.toLocaleString()}
           </h2>
         </div>
 
         <div className="card">
-          <small>Total Expense</small>
+          <small>Expense</small>
           <h2 style={{ color: "#DC2626" }}>
             ₹{expense.toLocaleString()}
           </h2>
@@ -108,7 +161,7 @@ export default function Transactions({
 
         <div className="card">
           <small>Transactions</small>
-          <h2>{transactions.length}</h2>
+          <h2>{filtered.length}</h2>
         </div>
       </div>
 
@@ -119,7 +172,9 @@ export default function Transactions({
           <input
             placeholder="Merchant"
             value={merchant}
-            onChange={(e) => setMerchant(e.target.value)}
+            onChange={(e) =>
+              setMerchant(e.target.value)
+            }
           />
 
           <input
@@ -141,7 +196,9 @@ export default function Transactions({
 
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) =>
+              setCategory(e.target.value)
+            }
           >
             {categories.map((c) => (
               <option key={c}>{c}</option>
@@ -152,7 +209,9 @@ export default function Transactions({
         <div className="row">
           <select
             value={account}
-            onChange={(e) => setAccount(e.target.value)}
+            onChange={(e) =>
+              setAccount(e.target.value)
+            }
           >
             {accounts.length === 0 ? (
               <option>Cash</option>
@@ -171,22 +230,54 @@ export default function Transactions({
         </div>
 
         <textarea
-          rows={2}
-          placeholder="Note (optional)"
+          rows={3}
+          placeholder="Note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
 
-        <button onClick={createTransaction}>
-          Add Transaction
-        </button>
+        <div className="row">
+          <button onClick={createTransaction}>
+            Add Transaction
+          </button>
+
+          <label
+            className="secondary"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 10,
+              cursor: "pointer",
+              padding: "12px 16px",
+              flex: 1,
+            }}
+          >
+            Import CSV
+
+            <input
+              hidden
+              type="file"
+              accept=".csv"
+              onChange={importCSV}
+            />
+          </label>
+        </div>
       </div>
 
       <div className="panel">
-        <h2>All Transactions</h2>
+        <div className="row">
+          <input
+            placeholder="Search merchant or category..."
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+          />
+        </div>
 
-        {transactions.length === 0 ? (
-          <p>No transactions found.</p>
+        {filtered.length === 0 ? (
+          <p>No transactions available.</p>
         ) : (
           <table>
             <thead>
@@ -201,14 +292,17 @@ export default function Transactions({
             </thead>
 
             <tbody>
-              {transactions.map((t) => (
+              {filtered.map((t) => (
                 <tr key={t.id}>
                   <td>{t.date}</td>
 
                   <td>
                     <strong>{t.merchant}</strong>
+
                     {t.note && (
-                      <div className="txMeta">{t.note}</div>
+                      <div className="txMeta">
+                        {t.note}
+                      </div>
                     )}
                   </td>
 
@@ -224,7 +318,9 @@ export default function Transactions({
                     }
                   >
                     {t.type === "income" ? "+" : "-"}₹
-                    {Number(t.amount).toLocaleString()}
+                    {Number(
+                      t.amount
+                    ).toLocaleString()}
                   </td>
 
                   <td>
