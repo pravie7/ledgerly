@@ -1,15 +1,16 @@
-const menus = [
-  ["Dashboard", "📊"],
-  ["Transactions", "💳"],
-  ["Recurring", "🔁"],
-  ["Subscriptions", "📅"],
-  ["Budgets", "🎯"],
-  ["Goals", "💰"],
-  ["Investments", "📈"],
-  ["Documents", "📄"],
-  ["Rules", "⚙️"],
-  ["Reports", "📑"],
-  ["Settings", "🛠️"],
+const menuItems = [
+  { name: "Dashboard", icon: "📊" },
+  { name: "Transactions", icon: "💳" },
+  { name: "Accounts", icon: "🏦" },
+  { name: "Recurring", icon: "🔁" },
+  { name: "Subscriptions", icon: "📅" },
+  { name: "Budgets", icon: "🎯" },
+  { name: "Goals", icon: "💰" },
+  { name: "Investments", icon: "📈" },
+  { name: "Reports", icon: "📑" },
+  { name: "Documents", icon: "📄" },
+  { name: "Rules", icon: "⚙️" },
+  { name: "Settings", icon: "🛠️" },
 ];
 
 export default function Sidebar({ page, setPage }) {
@@ -17,25 +18,27 @@ export default function Sidebar({ page, setPage }) {
     <aside className="sidebar">
       <div className="logo">
         <h2>₹ Ledgerly</h2>
-        <small>Personal Finance OS</small>
+        <p>Personal Finance OS</p>
       </div>
 
-      <nav>
-        {menus.map(([name, icon]) => (
+      <nav className="menu">
+        {menuItems.map((item) => (
           <button
-            key={name}
-            className={page === name ? "active" : ""}
-            onClick={() => setPage(name)}
+            key={item.name}
+            className={`menuItem ${
+              page === item.name ? "active" : ""
+            }`}
+            onClick={() => setPage(item.name)}
           >
-            <span>{icon}</span>
-            {name}
+            <span className="icon">{item.icon}</span>
+            <span>{item.name}</span>
           </button>
         ))}
       </nav>
 
-      <div className="version">
-        <small>Ledgerly v4.0</small>
-        <p>Cloud Sync Enabled</p>
+      <div className="sidebarFooter">
+        <div className="version">Ledgerly v6.0</div>
+        <small>Cloud Sync Enabled</small>
       </div>
     </aside>
   );
