@@ -2,14 +2,19 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Health check
     if (url.pathname === "/api/health") {
       return Response.json({
-        status: "ok",
         app: "Ledgerly",
+        status: "online",
       });
     }
 
-    if (url.pathname === "/api/transactions") {
+    // Get all transactions
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/transactions"
+    ) {
       const { results } = await env.DB.prepare(
         "SELECT * FROM transactions ORDER BY date DESC"
       ).all();
@@ -17,15 +22,17 @@ export default {
       return Response.json(results);
     }
 
-    if (request.method === "POST" &&
-        url.pathname === "/api/transactions") {
-
+    // Add transaction
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/transactions"
+    ) {
       const body = await request.json();
 
       await env.DB.prepare(`
         INSERT INTO transactions
-        (id, merchant, amount, type, category, account, note, date, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id,merchant,amount,type,category,account,note,date,created_at)
+        VALUES(?,?,?,?,?,?,?,?,?)
       `)
         .bind(
           body.id,
@@ -40,13 +47,9 @@ export default {
         )
         .run();
 
-      return Response.json({
-        success: true,
-      });
+      return Response.json({ success: true });
     }
 
-    return new Response("Ledgerly API", {
-      status: 200,
-    });
+    return new Response("Ledgerly API");
   },
 };
