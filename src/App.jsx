@@ -173,16 +173,14 @@ export default function App() {
             tags={state.tags}
           />
         );
-
-      case "Accounts":
-        return (
-          <Accounts
-            accounts={state.accounts}
-            setAccounts={(v) =>
-              updateState({ accounts: v })
-            }
-          />
-        );
+case "Accounts":
+  return (
+    <Accounts
+      accounts={state.accounts}
+      setAccounts={(v) => updateState({ accounts: v })}
+      transactions={state.transactions}
+    />
+  );
 
       case "Recurring":
         return (
