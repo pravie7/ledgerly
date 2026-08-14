@@ -7,6 +7,7 @@ import Header from "./components/Header";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Accounts from "./pages/Accounts";
+import Transfers from "./pages/Transfers";
 import Recurring from "./pages/Recurring";
 import Subscriptions from "./pages/Subscriptions";
 import Budgets from "./pages/Budgets";
@@ -45,21 +46,8 @@ const initialState = {
     "Other",
   ],
   investments: {
-    assets: [
-      { name: "Bank Balance", value: 0 },
-      { name: "EPF", value: 0 },
-      { name: "PPF", value: 0 },
-      { name: "Mutual Funds", value: 0 },
-      { name: "Gold", value: 0 },
-      { name: "Land", value: 0 },
-      { name: "Car", value: 0 },
-    ],
-    liabilities: [
-      { name: "Home Loan", value: 0 },
-      { name: "Car Loan", value: 0 },
-      { name: "Credit Card", value: 0 },
-      { name: "Personal Loan", value: 0 },
-    ],
+    assets: [],
+    liabilities: [],
   },
 };
 
@@ -79,7 +67,7 @@ export default function App() {
   const [state, setState] = useState(loadState);
 
   useEffect(() => {
-    async function syncCloud() {
+    async function loadCloud() {
       try {
         const data = await getTransactions();
         setState((prev) => ({
@@ -88,7 +76,7 @@ export default function App() {
         }));
       } catch {}
     }
-    syncCloud();
+    loadCloud();
   }, []);
 
   useEffect(() => {
@@ -102,6 +90,7 @@ export default function App() {
     () =>
       state.transactions
         .filter((t) => t.type === "income")
+        .filter((t) => !t.transfer)
         .reduce((s, t) => s + Number(t.amount), 0),
     [state.transactions]
   );
@@ -110,6 +99,7 @@ export default function App() {
     () =>
       state.transactions
         .filter((t) => t.type === "expense")
+        .filter((t) => !t.transfer)
         .reduce((s, t) => s + Number(t.amount), 0),
     [state.transactions]
   );
@@ -119,21 +109,21 @@ export default function App() {
     income > 0 ? Math.round((savings / income) * 100) : 0;
 
   const totalAssets = state.investments.assets.reduce(
-    (s, a) => s + Number(a.value),
+    (s, a) => s + Number(a.value || 0),
     0
   );
 
   const totalLiabilities =
     state.investments.liabilities.reduce(
-      (s, l) => s + Number(l.value),
+      (s, l) => s + Number(l.value || 0),
       0
     );
 
   const netWorth = totalAssets - totalLiabilities;
 
-  const resetAllData = () => {
+  function resetAllData() {
     if (
-      prompt(
+      window.prompt(
         'Type "DELETE ALL LEDGERLY DATA"'
       ) !== "DELETE ALL LEDGERLY DATA"
     )
@@ -142,14 +132,16 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEY);
     setState(initialState);
     setPage("Dashboard");
-  };
+  }
 
-  const renderPage = () => {
+  function renderPage() {
     switch (page) {
       case "Dashboard":
         return (
           <Dashboard
-            transactions={state.transactions}
+            transactions={state.transactions.filter(
+              (t) => !t.transfer
+            )}
             income={income}
             spending={spending}
             savings={savings}
@@ -164,23 +156,46 @@ export default function App() {
       case "Transactions":
         return (
           <Transactions
-            transactions={state.transactions}
+            transactions={state.transactions.filter(
+              (t) => !t.transfer
+            )}
             setTransactions={(v) =>
-              updateState({ transactions: v })
+              updateState({
+                transactions: [
+                  ...v,
+                  ...state.transactions.filter(
+                    (t) => t.transfer
+                  ),
+                ],
+              })
             }
             categories={state.categories}
             accounts={state.accounts}
             tags={state.tags}
           />
         );
-case "Accounts":
-  return (
-    <Accounts
-      accounts={state.accounts}
-      setAccounts={(v) => updateState({ accounts: v })}
-      transactions={state.transactions}
-    />
-  );
+
+      case "Accounts":
+        return (
+          <Accounts
+            accounts={state.accounts}
+            setAccounts={(v) =>
+              updateState({ accounts: v })
+            }
+            transactions={state.transactions}
+          />
+        );
+
+      case "Transfers":
+        return (
+          <Transfers
+            accounts={state.accounts}
+            transactions={state.transactions}
+            setTransactions={(v) =>
+              updateState({ transactions: v })
+            }
+          />
+        );
 
       case "Recurring":
         return (
@@ -213,7 +228,9 @@ case "Accounts":
             setBudgets={(v) =>
               updateState({ budgets: v })
             }
-            transactions={state.transactions}
+            transactions={state.transactions.filter(
+              (t) => !t.transfer
+            )}
             categories={state.categories}
           />
         );
@@ -222,7 +239,9 @@ case "Accounts":
         return (
           <Goals
             goals={state.goals}
-            setGoals={(v) => updateState({ goals: v })}
+            setGoals={(v) =>
+              updateState({ goals: v })
+            }
           />
         );
 
@@ -239,7 +258,9 @@ case "Accounts":
       case "Reports":
         return (
           <Reports
-            transactions={state.transactions}
+            transactions={state.transactions.filter(
+              (t) => !t.transfer
+            )}
           />
         );
 
@@ -257,7 +278,9 @@ case "Accounts":
         return (
           <Rules
             rules={state.rules}
-            setRules={(v) => updateState({ rules: v })}
+            setRules={(v) =>
+              updateState({ rules: v })
+            }
             categories={state.categories}
           />
         );
@@ -279,7 +302,7 @@ case "Accounts":
       default:
         return null;
     }
-  };
+  }
 
   return (
     <div className="appShell">
