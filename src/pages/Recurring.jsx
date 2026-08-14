@@ -1,252 +1,217 @@
 import { useMemo, useState } from "react";
 
-const frequencies = ["Daily", "Weekly", "Monthly", "Yearly"];
-
 export default function Recurring({
-  recurring,
+  recurring = [],
   setRecurring,
-  categories,
-  accounts,
+  categories = [],
+  accounts = [],
 }) {
-  const [merchant, setMerchant] = useState("");
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState("expense");
-  const [category, setCategory] = useState(
-    categories[0] || "Other"
-  );
-  const [account, setAccount] = useState(
-    accounts[0]?.name || "Cash"
-  );
-  const [frequency, setFrequency] = useState("Monthly");
-  const [day, setDay] = useState(1);
+  const [form, setForm] = useState({
+    name: "",
+    amount: "",
+    category: categories[0] || "Utilities",
+    account: accounts[0]?.name || "Cash",
+    frequency: "Monthly",
+    nextDate: new Date().toISOString().slice(0, 10),
+  });
 
-  const totalIncome = useMemo(
-    () =>
-      recurring
-        .filter((r) => r.type === "income")
-        .reduce((s, r) => s + Number(r.amount), 0),
-    [recurring]
-  );
+  const totalMonthly = useMemo(() => {
+    return recurring.reduce((sum, item) => {
+      const amount = Number(item.amount);
 
-  const totalExpense = useMemo(
-    () =>
-      recurring
-        .filter((r) => r.type === "expense")
-        .reduce((s, r) => s + Number(r.amount), 0),
-    [recurring]
-  );
+      switch (item.frequency) {
+        case "Weekly":
+          return sum + amount * 4;
+        case "Yearly":
+          return sum + amount / 12;
+        default:
+          return sum + amount;
+      }
+    }, 0);
+  }, [recurring]);
+
+  function update(field, value) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
 
   function addRecurring() {
-    if (!merchant || !amount) return;
+    if (!form.name || !form.amount) {
+      alert("Name and amount are required.");
+      return;
+    }
 
-    const item = {
+    const newItem = {
       id: crypto.randomUUID(),
-      merchant,
-      amount: Number(amount),
-      type,
-      category,
-      account,
-      frequency,
-      day: Number(day),
+      ...form,
+      amount: Number(form.amount),
       active: true,
     };
 
-    setRecurring([item, ...recurring]);
+    setRecurring([newItem, ...recurring]);
 
-    setMerchant("");
-    setAmount("");
-    setDay(1);
+    setForm({
+      name: "",
+      amount: "",
+      category: categories[0] || "Utilities",
+      account: accounts[0]?.name || "Cash",
+      frequency: "Monthly",
+      nextDate: new Date().toISOString().slice(0, 10),
+    });
   }
 
   function toggle(id) {
     setRecurring(
-      recurring.map((r) =>
-        r.id === id ? { ...r, active: !r.active } : r
+      recurring.map((item) =>
+        item.id === id
+          ? { ...item, active: !item.active }
+          : item
       )
     );
   }
 
   function remove(id) {
-    if (!confirm("Delete recurring payment?")) return;
-    setRecurring(recurring.filter((r) => r.id !== id));
+    setRecurring(recurring.filter((item) => item.id !== id));
   }
 
   return (
     <div className="dashboard">
       <div className="cards">
         <div className="card">
-          <small>Recurring Income</small>
-          <h2 style={{ color: "#16A34A" }}>
-            ₹{totalIncome.toLocaleString()}
-          </h2>
+          <small>Recurring Bills</small>
+          <h2>{recurring.length}</h2>
         </div>
 
         <div className="card">
-          <small>Recurring Expense</small>
+          <small>Monthly Commitment</small>
           <h2 style={{ color: "#DC2626" }}>
-            ₹{totalExpense.toLocaleString()}
+            ₹{Math.round(totalMonthly).toLocaleString()}
           </h2>
-        </div>
-
-        <div className="card">
-          <small>Net Monthly</small>
-          <h2 style={{ color: "#2563EB" }}>
-            ₹{(totalIncome - totalExpense).toLocaleString()}
-          </h2>
-        </div>
-
-        <div className="card">
-          <small>Active Plans</small>
-          <h2>{recurring.filter((r) => r.active).length}</h2>
         </div>
       </div>
 
       <div className="panel">
         <h2>Add Recurring Payment</h2>
 
-        <div className="row">
+        <div className="grid2">
           <input
-            placeholder="Merchant / Salary"
-            value={merchant}
-            onChange={(e) => setMerchant(e.target.value)}
+            placeholder="Netflix / Rent / EMI"
+            value={form.name}
+            onChange={(e) => update("name", e.target.value)}
           />
 
           <input
             type="number"
             placeholder="Amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            value={form.amount}
+            onChange={(e) => update("amount", e.target.value)}
           />
-        </div>
-
-        <div className="row">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-          </select>
 
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={form.category}
+            onChange={(e) => update("category", e.target.value)}
           >
             {categories.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>
-        </div>
 
-        <div className="row">
           <select
-            value={account}
-            onChange={(e) => setAccount(e.target.value)}
+            value={form.account}
+            onChange={(e) => update("account", e.target.value)}
           >
             {accounts.length === 0 ? (
               <option>Cash</option>
             ) : (
               accounts.map((a) => (
-                <option key={a.name}>{a.name}</option>
+                <option key={a.id}>{a.name}</option>
               ))
             )}
           </select>
 
           <select
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value)}
+            value={form.frequency}
+            onChange={(e) =>
+              update("frequency", e.target.value)
+            }
           >
-            {frequencies.map((f) => (
-              <option key={f}>{f}</option>
-            ))}
+            <option>Weekly</option>
+            <option>Monthly</option>
+            <option>Yearly</option>
           </select>
 
           <input
-            type="number"
-            min="1"
-            max="31"
-            placeholder="Day"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
+            type="date"
+            value={form.nextDate}
+            onChange={(e) => update("nextDate", e.target.value)}
           />
         </div>
 
-        <button onClick={addRecurring}>
-          Add Recurring Item
+        <button
+          onClick={addRecurring}
+          style={{ marginTop: 16 }}
+        >
+          Add Recurring Bill
         </button>
       </div>
 
       <div className="panel">
-        <h2>Recurring Schedule</h2>
+        <h2>Upcoming Payments</h2>
 
         {recurring.length === 0 ? (
-          <p>No recurring payments configured.</p>
+          <p>No recurring payments added.</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Merchant</th>
-                <th>Type</th>
-                <th>Frequency</th>
-                <th>Next</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
+          recurring.map((item) => (
+            <div
+              key={item.id}
+              className="budgetRow"
+              style={{ marginBottom: 16 }}
+            >
+              <div>
+                <strong>{item.name}</strong>
 
-            <tbody>
-              {recurring.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <strong>{r.merchant}</strong>
-                    <div className="txMeta">{r.category}</div>
-                  </td>
+                <div className="txMeta">
+                  {item.frequency} • {item.account} • Due{" "}
+                  {item.nextDate}
+                </div>
+              </div>
 
-                  <td>{r.type}</td>
+              <div style={{ textAlign: "right" }}>
+                <strong>
+                  ₹{Number(item.amount).toLocaleString()}
+                </strong>
 
-                  <td>{r.frequency}</td>
-
-                  <td>
-                    {r.frequency === "Monthly"
-                      ? `Day ${r.day}`
-                      : r.frequency}
-                  </td>
-
-                  <td
-                    className={
-                      r.type === "income"
-                        ? "income"
-                        : "expense"
-                    }
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    justifyContent: "flex-end",
+                    marginTop: 6,
+                  }}
+                >
+                  <button
+                    onClick={() => toggle(item.id)}
+                    style={{
+                      fontSize: 12,
+                      padding: "4px 8px",
+                    }}
                   >
-                    {r.type === "income" ? "+" : "-"}₹
-                    {r.amount.toLocaleString()}
-                  </td>
+                    {item.active ? "Pause" : "Resume"}
+                  </button>
 
-                  <td>
-                    <button
-                      className={
-                        r.active ? "secondary" : "delete"
-                      }
-                      onClick={() => toggle(r.id)}
-                    >
-                      {r.active ? "Active" : "Paused"}
-                    </button>
-                  </td>
-
-                  <td>
-                    <button
-                      className="delete"
-                      onClick={() => remove(r.id)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  <button
+                    className="delete"
+                    onClick={() => remove(item.id)}
+                    style={{
+                      fontSize: 12,
+                      padding: "4px 8px",
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
