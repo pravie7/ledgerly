@@ -1,480 +1,254 @@
 import { useMemo, useState } from "react";
 
-const categories = [
-  "Housing",
-  "Utilities",
-  "Groceries",
-  "Dining",
-  "Transport",
-  "Health",
-  "Insurance",
-  "Entertainment",
-  "Subscriptions",
-  "Salary",
-  "Other",
-];
+const frequencies = ["Daily", "Weekly", "Monthly", "Yearly"];
 
-const frequencies = [
-  "Weekly",
-  "Monthly",
-  "Quarterly",
-  "Yearly",
-];
-
-function formatCurrency(value) {
-  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
-}
-
-function getInitialRecurring() {
-  try {
-    const saved = localStorage.getItem("ledgerly_recurring");
-
-    if (!saved) {
-      return [];
-    }
-
-    const parsed = JSON.parse(saved);
-
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export default function Recurring() {
-  const [recurring, setRecurring] = useState(getInitialRecurring);
-
-  const [name, setName] = useState("");
+export default function Recurring({
+  recurring,
+  setRecurring,
+  categories,
+  accounts,
+}) {
+  const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("expense");
-  const [category, setCategory] = useState("Utilities");
+  const [category, setCategory] = useState(
+    categories[0] || "Other"
+  );
+  const [account, setAccount] = useState(
+    accounts[0]?.name || "Cash"
+  );
   const [frequency, setFrequency] = useState("Monthly");
-  const [nextDate, setNextDate] = useState("");
-  const [search, setSearch] = useState("");
+  const [day, setDay] = useState(1);
 
-  function saveRecurring(items) {
-    setRecurring(items);
+  const totalIncome = useMemo(
+    () =>
+      recurring
+        .filter((r) => r.type === "income")
+        .reduce((s, r) => s + Number(r.amount), 0),
+    [recurring]
+  );
 
-    localStorage.setItem(
-      "ledgerly_recurring",
-      JSON.stringify(items)
-    );
-  }
+  const totalExpense = useMemo(
+    () =>
+      recurring
+        .filter((r) => r.type === "expense")
+        .reduce((s, r) => s + Number(r.amount), 0),
+    [recurring]
+  );
 
   function addRecurring() {
-    const cleanName = name.trim();
-    const numericAmount = Number(amount);
+    if (!merchant || !amount) return;
 
-    if (!cleanName) {
-      alert("Please enter a name.");
-      return;
-    }
-
-    if (!amount || numericAmount <= 0) {
-      alert("Please enter a valid amount.");
-      return;
-    }
-
-    if (!nextDate) {
-      alert("Please select the next date.");
-      return;
-    }
-
-    const duplicate = recurring.some(
-      (item) =>
-        item.name.toLowerCase() === cleanName.toLowerCase() &&
-        Number(item.amount) === numericAmount &&
-        item.type === type
-    );
-
-    if (duplicate) {
-      alert("A similar recurring transaction already exists.");
-      return;
-    }
-
-    const newItem = {
-      id:
-        typeof crypto !== "undefined" &&
-        crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random()}`,
-      name: cleanName,
-      amount: numericAmount,
+    const item = {
+      id: crypto.randomUUID(),
+      merchant,
+      amount: Number(amount),
       type,
       category,
+      account,
       frequency,
-      nextDate,
+      day: Number(day),
       active: true,
-      createdAt: new Date().toISOString(),
     };
 
-    saveRecurring([newItem, ...recurring]);
+    setRecurring([item, ...recurring]);
 
-    setName("");
+    setMerchant("");
     setAmount("");
-    setType("expense");
-    setCategory("Utilities");
-    setFrequency("Monthly");
-    setNextDate("");
+    setDay(1);
   }
 
-  function toggleActive(id) {
-    const updated = recurring.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            active: !item.active,
-          }
-        : item
-    );
-
-    saveRecurring(updated);
-  }
-
-  function deleteRecurring(id) {
-    const confirmed = window.confirm(
-      "Delete this recurring transaction?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    saveRecurring(
-      recurring.filter((item) => item.id !== id)
+  function toggle(id) {
+    setRecurring(
+      recurring.map((r) =>
+        r.id === id ? { ...r, active: !r.active } : r
+      )
     );
   }
 
-  const filteredRecurring = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    if (!query) {
-      return recurring;
-    }
-
-    return recurring.filter((item) => {
-      return (
-        item.name.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query) ||
-        item.frequency.toLowerCase().includes(query)
-      );
-    });
-  }, [recurring, search]);
-
-  const activeCount = recurring.filter(
-    (item) => item.active
-  ).length;
-
-  const monthlyExpense = recurring
-    .filter(
-      (item) =>
-        item.active &&
-        item.type === "expense" &&
-        item.frequency === "Monthly"
-    )
-    .reduce((total, item) => total + Number(item.amount), 0);
-
-  const monthlyIncome = recurring
-    .filter(
-      (item) =>
-        item.active &&
-        item.type === "income" &&
-        item.frequency === "Monthly"
-    )
-    .reduce((total, item) => total + Number(item.amount), 0);
+  function remove(id) {
+    if (!confirm("Delete recurring payment?")) return;
+    setRecurring(recurring.filter((r) => r.id !== id));
+  }
 
   return (
-    <div className="pageStack">
-      <section className="heroSection">
-        <div>
-          <h1>Recurring</h1>
-
-          <p>
-            Track bills, subscriptions, salary, rent, and other
-            repeating financial activity.
-          </p>
-        </div>
-      </section>
-
-      <section className="statGrid">
-        <div className="statCard">
-          <span className="statLabel">
-            Active Recurring
-          </span>
-
-          <strong className="statValue">
-            {activeCount}
-          </strong>
-
-          <span className="statHint">
-            Currently active items
-          </span>
+    <div className="dashboard">
+      <div className="cards">
+        <div className="card">
+          <small>Recurring Income</small>
+          <h2 style={{ color: "#16A34A" }}>
+            ₹{totalIncome.toLocaleString()}
+          </h2>
         </div>
 
-        <div className="statCard">
-          <span className="statLabel">
-            Monthly Expenses
-          </span>
-
-          <strong className="statValue negative">
-            {formatCurrency(monthlyExpense)}
-          </strong>
-
-          <span className="statHint">
-            From monthly recurring expenses
-          </span>
+        <div className="card">
+          <small>Recurring Expense</small>
+          <h2 style={{ color: "#DC2626" }}>
+            ₹{totalExpense.toLocaleString()}
+          </h2>
         </div>
 
-        <div className="statCard">
-          <span className="statLabel">
-            Monthly Income
-          </span>
-
-          <strong className="statValue positive">
-            {formatCurrency(monthlyIncome)}
-          </strong>
-
-          <span className="statHint">
-            From monthly recurring income
-          </span>
+        <div className="card">
+          <small>Net Monthly</small>
+          <h2 style={{ color: "#2563EB" }}>
+            ₹{(totalIncome - totalExpense).toLocaleString()}
+          </h2>
         </div>
 
-        <div className="statCard">
-          <span className="statLabel">
-            Monthly Net
-          </span>
-
-          <strong
-            className={
-              monthlyIncome - monthlyExpense >= 0
-                ? "statValue positive"
-                : "statValue negative"
-            }
-          >
-            {formatCurrency(
-              monthlyIncome - monthlyExpense
-            )}
-          </strong>
-
-          <span className="statHint">
-            Income minus recurring expenses
-          </span>
+        <div className="card">
+          <small>Active Plans</small>
+          <h2>{recurring.filter((r) => r.active).length}</h2>
         </div>
-      </section>
+      </div>
 
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <h2>Add Recurring Transaction</h2>
+      <div className="panel">
+        <h2>Add Recurring Payment</h2>
 
-            <p>
-              Create a repeating income or expense.
-            </p>
-          </div>
-        </div>
-
-        <div className="formGrid">
-          <div className="formGroup">
-            <label>Name</label>
-
-            <input
-              type="text"
-              placeholder="Rent, Netflix, Salary..."
-              value={name}
-              onChange={(event) =>
-                setName(event.target.value)
-              }
-            />
-          </div>
-
-          <div className="formGroup">
-            <label>Amount</label>
-
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Amount"
-              value={amount}
-              onChange={(event) =>
-                setAmount(event.target.value)
-              }
-            />
-          </div>
-
-          <div className="formGroup">
-            <label>Type</label>
-
-            <select
-              value={type}
-              onChange={(event) =>
-                setType(event.target.value)
-              }
-            >
-              <option value="expense">
-                Expense
-              </option>
-
-              <option value="income">
-                Income
-              </option>
-            </select>
-          </div>
-
-          <div className="formGroup">
-            <label>Category</label>
-
-            <select
-              value={category}
-              onChange={(event) =>
-                setCategory(event.target.value)
-              }
-            >
-              {categories.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="formGroup">
-            <label>Frequency</label>
-
-            <select
-              value={frequency}
-              onChange={(event) =>
-                setFrequency(event.target.value)
-              }
-            >
-              {frequencies.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="formGroup">
-            <label>Next Date</label>
-
-            <input
-              type="date"
-              value={nextDate}
-              onChange={(event) =>
-                setNextDate(event.target.value)
-              }
-            />
-          </div>
-        </div>
-
-        <button onClick={addRecurring}>
-          + Add Recurring
-        </button>
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <h2>Recurring Transactions</h2>
-
-            <p>
-              Your saved recurring financial activity.
-            </p>
-          </div>
+        <div className="row">
+          <input
+            placeholder="Merchant / Salary"
+            value={merchant}
+            onChange={(e) => setMerchant(e.target.value)}
+          />
 
           <input
-            className="searchInput"
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
+            type="number"
+            placeholder="Amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
           />
         </div>
 
-        {filteredRecurring.length === 0 ? (
-          <div className="emptyState">
-            <div className="emptyIcon">↻</div>
+        <div className="row">
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
 
-            <h3>
-              {recurring.length === 0
-                ? "No recurring transactions yet"
-                : "No matching transactions"}
-            </h3>
-
-            <p>
-              {recurring.length === 0
-                ? "Add your first recurring income or expense above."
-                : "Try a different search term."}
-            </p>
-          </div>
-        ) : (
-          <div className="transactionList">
-            {filteredRecurring.map((item) => (
-              <div
-                className="transactionListItem"
-                key={item.id}
-              >
-                <div>
-                  <strong>{item.name}</strong>
-
-                  <span>
-                    {item.category} · {item.frequency} ·
-                    Next: {item.nextDate}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                  }}
-                >
-                  <strong
-                    className={
-                      item.type === "income"
-                        ? "positive"
-                        : ""
-                    }
-                  >
-                    {item.type === "income"
-                      ? "+"
-                      : "-"}
-                    {formatCurrency(item.amount)}
-                  </strong>
-
-                  <button
-                    className={
-                      item.active
-                        ? "secondaryButton"
-                        : "primaryButton"
-                    }
-                    onClick={() =>
-                      toggleActive(item.id)
-                    }
-                  >
-                    {item.active
-                      ? "Active"
-                      : "Inactive"}
-                  </button>
-
-                  <button
-                    className="delete"
-                    onClick={() =>
-                      deleteRecurring(item.id)
-                    }
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {categories.map((c) => (
+              <option key={c}>{c}</option>
             ))}
-          </div>
+          </select>
+        </div>
+
+        <div className="row">
+          <select
+            value={account}
+            onChange={(e) => setAccount(e.target.value)}
+          >
+            {accounts.length === 0 ? (
+              <option>Cash</option>
+            ) : (
+              accounts.map((a) => (
+                <option key={a.name}>{a.name}</option>
+              ))
+            )}
+          </select>
+
+          <select
+            value={frequency}
+            onChange={(e) => setFrequency(e.target.value)}
+          >
+            {frequencies.map((f) => (
+              <option key={f}>{f}</option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            min="1"
+            max="31"
+            placeholder="Day"
+            value={day}
+            onChange={(e) => setDay(e.target.value)}
+          />
+        </div>
+
+        <button onClick={addRecurring}>
+          Add Recurring Item
+        </button>
+      </div>
+
+      <div className="panel">
+        <h2>Recurring Schedule</h2>
+
+        {recurring.length === 0 ? (
+          <p>No recurring payments configured.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Merchant</th>
+                <th>Type</th>
+                <th>Frequency</th>
+                <th>Next</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {recurring.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <strong>{r.merchant}</strong>
+                    <div className="txMeta">{r.category}</div>
+                  </td>
+
+                  <td>{r.type}</td>
+
+                  <td>{r.frequency}</td>
+
+                  <td>
+                    {r.frequency === "Monthly"
+                      ? `Day ${r.day}`
+                      : r.frequency}
+                  </td>
+
+                  <td
+                    className={
+                      r.type === "income"
+                        ? "income"
+                        : "expense"
+                    }
+                  >
+                    {r.type === "income" ? "+" : "-"}₹
+                    {r.amount.toLocaleString()}
+                  </td>
+
+                  <td>
+                    <button
+                      className={
+                        r.active ? "secondary" : "delete"
+                      }
+                      onClick={() => toggle(r.id)}
+                    >
+                      {r.active ? "Active" : "Paused"}
+                    </button>
+                  </td>
+
+                  <td>
+                    <button
+                      className="delete"
+                      onClick={() => remove(r.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </section>
+      </div>
     </div>
   );
 }
