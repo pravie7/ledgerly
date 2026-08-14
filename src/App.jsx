@@ -9,6 +9,7 @@ import Recurring from "./pages/Recurring";
 import Subscriptions from "./pages/Subscriptions";
 import Budgets from "./pages/Budgets";
 import Goals from "./pages/Goals";
+import Investments from "./pages/Investments";
 import Documents from "./pages/Documents";
 import Rules from "./pages/Rules";
 import Settings from "./pages/Settings";
@@ -49,9 +50,7 @@ function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
 
-    if (!saved) {
-      return initialState;
-    }
+    if (!saved) return initialState;
 
     return {
       ...initialState,
@@ -64,7 +63,6 @@ function loadState() {
 
 export default function App() {
   const [page, setPage] = useState("Dashboard");
-
   const [state, setState] = useState(loadState);
 
   const {
@@ -97,13 +95,13 @@ export default function App() {
   const income = useMemo(() => {
     return transactions
       .filter((t) => t.type === "income")
-      .reduce((total, t) => total + Number(t.amount), 0);
+      .reduce((sum, t) => sum + Number(t.amount), 0);
   }, [transactions]);
 
   const spending = useMemo(() => {
     return transactions
       .filter((t) => t.type === "expense")
-      .reduce((total, t) => total + Number(t.amount), 0);
+      .reduce((sum, t) => sum + Number(t.amount), 0);
   }, [transactions]);
 
   const savings = income - spending;
@@ -114,13 +112,11 @@ export default function App() {
   const netWorth = assets - liabilities;
 
   function resetAllData() {
-    const confirmation = window.prompt(
-      'Type "DELETE ALL LEDGERLY DATA" to permanently reset Ledgerly.'
+    const confirmText = window.prompt(
+      'Type "DELETE ALL LEDGERLY DATA" to reset everything.'
     );
 
-    if (confirmation !== "DELETE ALL LEDGERLY DATA") {
-      return;
-    }
+    if (confirmText !== "DELETE ALL LEDGERLY DATA") return;
 
     setState({
       ...initialState,
@@ -206,6 +202,9 @@ export default function App() {
           />
         );
 
+      case "Investments":
+        return <Investments />;
+
       case "Documents":
         return (
           <Documents
@@ -220,9 +219,7 @@ export default function App() {
         return (
           <Rules
             rules={rules}
-            setRules={(value) =>
-              updateState({ rules: value })
-            }
+            setRules={(value) => updateState({ rules: value })}
             categories={categories}
           />
         );
@@ -242,7 +239,19 @@ export default function App() {
         );
 
       default:
-        return null;
+        return (
+          <Dashboard
+            transactions={transactions}
+            income={income}
+            spending={spending}
+            savings={savings}
+            savingsRate={savingsRate}
+            netWorth={netWorth}
+            netWorthConfigured={netWorthConfigured}
+            budgets={budgets}
+            goals={goals}
+          />
+        );
     }
   }
 
@@ -253,9 +262,7 @@ export default function App() {
       <div className="mainArea">
         <Header page={page} />
 
-        <main className="pageContent">
-          {renderPage()}
-        </main>
+        <main className="pageContent">{renderPage()}</main>
       </div>
     </div>
   );
