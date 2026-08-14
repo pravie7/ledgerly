@@ -6,6 +6,7 @@ import Header from "./components/Header";
 
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
+import Accounts from "./pages/Accounts";
 import Recurring from "./pages/Recurring";
 import Subscriptions from "./pages/Subscriptions";
 import Budgets from "./pages/Budgets";
@@ -20,6 +21,7 @@ const STORAGE_KEY = "ledgerly_state";
 
 const initialState = {
   transactions: [],
+  accounts: [],
   budgets: [],
   goals: [],
   recurring: [],
@@ -42,7 +44,6 @@ const initialState = {
     "Needs review",
     "Other",
   ],
-  accounts: [],
   investments: {
     assets: [
       { name: "Bank Balance", value: 0 },
@@ -77,49 +78,43 @@ export default function App() {
   const [page, setPage] = useState("Dashboard");
   const [state, setState] = useState(loadState);
 
-  // Load latest transactions from D1
   useEffect(() => {
-    async function loadCloud() {
+    async function syncCloud() {
       try {
         const data = await getTransactions();
         setState((prev) => ({
           ...prev,
           transactions: data,
         }));
-      } catch (err) {
-        console.log("Cloud sync unavailable");
-      }
+      } catch {}
     }
-
-    loadCloud();
+    syncCloud();
   }, []);
 
-  // Save local state
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  function updateState(updates) {
-    setState((prev) => ({
-      ...prev,
-      ...updates,
-    }));
-  }
+  const updateState = (updates) =>
+    setState((prev) => ({ ...prev, ...updates }));
 
-  const income = useMemo(() => {
-    return state.transactions
-      .filter((t) => t.type === "income")
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [state.transactions]);
+  const income = useMemo(
+    () =>
+      state.transactions
+        .filter((t) => t.type === "income")
+        .reduce((s, t) => s + Number(t.amount), 0),
+    [state.transactions]
+  );
 
-  const spending = useMemo(() => {
-    return state.transactions
-      .filter((t) => t.type === "expense")
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [state.transactions]);
+  const spending = useMemo(
+    () =>
+      state.transactions
+        .filter((t) => t.type === "expense")
+        .reduce((s, t) => s + Number(t.amount), 0),
+    [state.transactions]
+  );
 
   const savings = income - spending;
-
   const savingsRate =
     income > 0 ? Math.round((savings / income) * 100) : 0;
 
@@ -136,19 +131,20 @@ export default function App() {
 
   const netWorth = totalAssets - totalLiabilities;
 
-  function resetAllData() {
-    const confirm = window.prompt(
-      'Type "DELETE ALL LEDGERLY DATA"'
-    );
-
-    if (confirm !== "DELETE ALL LEDGERLY DATA") return;
+  const resetAllData = () => {
+    if (
+      prompt(
+        'Type "DELETE ALL LEDGERLY DATA"'
+      ) !== "DELETE ALL LEDGERLY DATA"
+    )
+      return;
 
     localStorage.removeItem(STORAGE_KEY);
     setState(initialState);
     setPage("Dashboard");
-  }
+  };
 
-  function renderPage() {
+  const renderPage = () => {
     switch (page) {
       case "Dashboard":
         return (
@@ -175,6 +171,16 @@ export default function App() {
             categories={state.categories}
             accounts={state.accounts}
             tags={state.tags}
+          />
+        );
+
+      case "Accounts":
+        return (
+          <Accounts
+            accounts={state.accounts}
+            setAccounts={(v) =>
+              updateState({ accounts: v })
+            }
           />
         );
 
@@ -275,7 +281,7 @@ export default function App() {
       default:
         return null;
     }
-  }
+  };
 
   return (
     <div className="appShell">
