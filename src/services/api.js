@@ -1,9 +1,10 @@
-const BASE = "https://ledgerly-api.praveenmdu127.workers.dev";
+const BASE =
+  "https://ledgerly-api.praveenmdu127.workers.dev";
 
 export async function getTransactions() {
   const res = await fetch(`${BASE}/api/transactions`);
 
-  if (!res.ok) throw new Error("Unable to load transactions");
+  if (!res.ok) throw new Error("Load failed");
 
   return await res.json();
 }
@@ -17,18 +18,19 @@ export async function addTransaction(tx) {
     body: JSON.stringify(tx),
   });
 
-  if (!res.ok) throw new Error("Unable to save transaction");
-
   return await res.json();
 }
 
-export async function importTransactions(list) {
-  const results = [];
+export async function importTransactions(rows) {
+  const res = await fetch(`${BASE}/api/import`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(rows),
+  });
 
-  for (const tx of list) {
-    const r = await addTransaction(tx);
-    results.push(r);
-  }
+  if (!res.ok) throw new Error("Import failed");
 
-  return results;
+  return await res.json();
 }
