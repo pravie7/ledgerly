@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { importTransactions } from "../services/api";
 
 export default function Documents({
   documents = [],
@@ -6,6 +7,7 @@ export default function Documents({
 }) {
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function parseCSV(text) {
     const lines = text
@@ -27,28 +29,25 @@ export default function Documents({
         obj[h] = (values[i] || "").trim();
       });
 
+      const debit = Number(obj.debit || 0);
+      const credit = Number(obj.credit || 0);
+
       return {
-        id: Date.now() + index,
-        date:
-          obj.date ||
-          obj["txn date"] ||
-          obj.transactiondate ||
-          "",
+        id: crypto.randomUUID(),
         merchant:
           obj.description ||
           obj.narration ||
           obj.merchant ||
           "Unknown",
-        amount: Number(
-          obj.amount || obj.debit || obj.credit || 0
-        ),
-        type:
-          Number(obj.credit || 0) > 0
-            ? "income"
-            : "expense",
+        amount: credit > 0 ? credit : debit,
+        type: credit > 0 ? "income" : "expense",
         category: "Needs review",
-        account: "Bank",
+        account: "HDFC",
         note: "",
+        date:
+          obj.date ||
+          obj["txn date"] ||
+          new Date().toISOString().slice(0, 10),
       };
     });
   }
@@ -59,8 +58,7 @@ export default function Documents({
     const reader = new FileReader();
 
     reader.onload = (e) => {
-      const text = e.target.result;
-      const parsed = parseCSV(text);
+      const parsed = parseCSV(e.target.result);
 
       setRows(parsed);
       setFileName(file.name);
@@ -69,30 +67,41 @@ export default function Documents({
     reader.readAsText(file);
   }
 
-  function saveImport() {
-    const imported = {
-      id: Date.now(),
-      name: fileName,
-      uploadedAt: new Date().toISOString(),
-      rows,
-    };
+  async function uploadToCloud() {
+    try {
+      setLoading(true);
 
-    setDocuments([...documents, imported]);
+      await importTransactions(rows);
 
-    alert(`${rows.length} transactions imported successfully.`);
+      const history = {
+        id: Date.now(),
+        name: fileName,
+        uploadedAt: new Date().toLocaleString(),
+        count: rows.length,
+      };
 
-    setRows([]);
-    setFileName("");
+      setDocuments([...documents, history]);
+
+      alert(
+        `${rows.length} transactions imported to Cloud successfully.`
+      );
+
+      setRows([]);
+      setFileName("");
+    } catch (e) {
+      alert("Import failed.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="dashboard">
       <div className="panel">
-        <h2>CSV Import Wizard</h2>
+        <h2>CSV Bank Statement Import</h2>
 
-        <p style={{ marginBottom: 18, color: "#64748B" }}>
-          Upload HDFC, ICICI, SBI or Axis bank statement in
-          CSV format.
+        <p style={{ marginBottom: 16 }}>
+          Supports HDFC, ICICI, SBI and Axis CSV statements.
         </p>
 
         <input
@@ -102,7 +111,7 @@ export default function Documents({
         />
 
         {fileName && (
-          <div style={{ marginTop: 18 }}>
+          <div style={{ marginTop: 16 }}>
             <strong>{fileName}</strong>
             <p>{rows.length} transactions detected</p>
           </div>
@@ -110,10 +119,13 @@ export default function Documents({
 
         {rows.length > 0 && (
           <button
-            style={{ marginTop: 18 }}
-            onClick={saveImport}
+            style={{ marginTop: 16 }}
+            onClick={uploadToCloud}
+            disabled={loading}
           >
-            Import Transactions
+            {loading
+              ? "Uploading..."
+              : "Import to Cloud"}
           </button>
         )}
       </div>
@@ -122,7 +134,7 @@ export default function Documents({
         <h2>Preview</h2>
 
         {rows.length === 0 ? (
-          <p>No CSV loaded.</p>
+          <p>No CSV selected.</p>
         ) : (
           <table>
             <thead>
@@ -139,7 +151,9 @@ export default function Documents({
                 <tr key={r.id}>
                   <td>{r.date}</td>
                   <td>{r.merchant}</td>
-                  <td>₹{Number(r.amount).toLocaleString()}</td>
+                  <td>
+                    ₹{Number(r.amount).toLocaleString()}
+                  </td>
                   <td>{r.type}</td>
                 </tr>
               ))}
@@ -149,25 +163,25 @@ export default function Documents({
       </div>
 
       <div className="panel">
-        <h2>Imported Files</h2>
+        <h2>Import History</h2>
 
         {documents.length === 0 ? (
-          <p>No imported statements.</p>
+          <p>No imported files.</p>
         ) : (
-          documents.map((doc) => (
+          documents.map((d) => (
             <div
-              key={doc.id}
+              key={d.id}
               className="budgetRow"
               style={{ marginBottom: 14 }}
             >
               <div>
-                <strong>{doc.name}</strong>
+                <strong>{d.name}</strong>
                 <div className="txMeta">
-                  {doc.rows.length} transactions
+                  {d.count} transactions • {d.uploadedAt}
                 </div>
               </div>
 
-              <span className="badge">Imported</span>
+              <span className="badge">Cloud</span>
             </div>
           ))
         )}
