@@ -1,8 +1,7 @@
 const cors = {
   "Access-Control-Allow-Origin":
     "https://ledgerly.praveenmdu127.workers.dev",
-  "Access-Control-Allow-Methods":
-    "GET,POST,OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -10,11 +9,12 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // CORS
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: cors });
     }
 
-    // Health
+    // Health Check
     if (url.pathname === "/api/health") {
       return Response.json(
         {
@@ -25,7 +25,7 @@ export default {
       );
     }
 
-    // Get all transactions
+    // Get Transactions
     if (
       request.method === "GET" &&
       url.pathname === "/api/transactions"
@@ -37,55 +37,48 @@ export default {
       return Response.json(results, { headers: cors });
     }
 
-    // Add one transaction
+    // Add Single Transaction
     if (
       request.method === "POST" &&
       url.pathname === "/api/transactions"
     ) {
-      const body = await request.json();
+      const tx = await request.json();
 
-      const exists = await env.DB.prepare(
+      const duplicate = await env.DB.prepare(
         `SELECT id FROM transactions
-         WHERE merchant=? AND amount=? AND date=? LIMIT 1`
+         WHERE merchant=? AND amount=? AND date=?
+         LIMIT 1`
       )
-        .bind(
-          body.merchant,
-          body.amount,
-          body.date
-        )
+        .bind(tx.merchant, tx.amount, tx.date)
         .first();
 
-      if (exists) {
+      if (duplicate) {
         return Response.json(
-          {
-            duplicate: true,
-          },
+          { success: false, duplicate: true },
           { headers: cors }
         );
       }
 
       await env.DB.prepare(`
         INSERT INTO transactions
-        (id,merchant,amount,type,category,account,note,date,created_at)
-        VALUES(?,?,?,?,?,?,?,?,?)
+        (id, merchant, amount, type, category, account, note, date, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
         .bind(
-          body.id,
-          body.merchant,
-          body.amount,
-          body.type,
-          body.category,
-          body.account,
-          body.note,
-          body.date,
+          tx.id,
+          tx.merchant,
+          tx.amount,
+          tx.type,
+          tx.category,
+          tx.account,
+          tx.note,
+          tx.date,
           new Date().toISOString()
         )
         .run();
 
       return Response.json(
-        {
-          success: true,
-        },
+        { success: true },
         { headers: cors }
       );
     }
@@ -103,13 +96,10 @@ export default {
       for (const tx of rows) {
         const exists = await env.DB.prepare(
           `SELECT id FROM transactions
-           WHERE merchant=? AND amount=? AND date=? LIMIT 1`
+           WHERE merchant=? AND amount=? AND date=?
+           LIMIT 1`
         )
-          .bind(
-            tx.merchant,
-            tx.amount,
-            tx.date
-          )
+          .bind(tx.merchant, tx.amount, tx.date)
           .first();
 
         if (exists) {
@@ -119,8 +109,8 @@ export default {
 
         await env.DB.prepare(`
           INSERT INTO transactions
-          (id,merchant,amount,type,category,account,note,date,created_at)
-          VALUES(?,?,?,?,?,?,?,?,?)
+          (id, merchant, amount, type, category, account, note, date, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
           .bind(
             tx.id,
@@ -140,6 +130,7 @@ export default {
 
       return Response.json(
         {
+          success: true,
           imported,
           duplicates,
           total: rows.length,
