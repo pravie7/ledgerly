@@ -2,7 +2,6 @@ export async function onRequest(context) {
   const { request, env, next } = context;
   const url = new URL(request.url);
 
-  // Health API
   if (url.pathname === "/api/health") {
     return Response.json({
       app: "Ledgerly",
@@ -10,7 +9,6 @@ export async function onRequest(context) {
     });
   }
 
-  // Get Transactions
   if (
     request.method === "GET" &&
     url.pathname === "/api/transactions"
@@ -22,7 +20,6 @@ export async function onRequest(context) {
     return Response.json(results);
   }
 
-  // Add Transaction
   if (
     request.method === "POST" &&
     url.pathname === "/api/transactions"
@@ -50,6 +47,5 @@ export async function onRequest(context) {
     return Response.json({ success: true });
   }
 
-  // Everything else → React app
   return next();
 }
