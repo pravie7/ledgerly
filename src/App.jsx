@@ -13,6 +13,7 @@ import Subscriptions from "./pages/Subscriptions";
 import Budgets from "./pages/Budgets";
 import Goals from "./pages/Goals";
 import Investments from "./pages/Investments";
+import Portfolio from "./pages/Portfolio";
 import Reports from "./pages/Reports";
 import Documents from "./pages/Documents";
 import Rules from "./pages/Rules";
@@ -31,6 +32,7 @@ const initialState = {
   documents: [],
   rules: [],
   tags: [],
+
   categories: [
     "Housing",
     "Groceries",
@@ -43,9 +45,10 @@ const initialState = {
     "Health",
     "Entertainment",
     "Income",
-    "Needs review",
+    "Transfer",
     "Other",
   ],
+
   investments: {
     assets: [
       { name: "Bank Balance", value: 0 },
@@ -62,6 +65,11 @@ const initialState = {
       { name: "Credit Card", value: 0 },
       { name: "Personal Loan", value: 0 },
     ],
+  },
+
+  portfolio: {
+    holdings: [],
+    fixedDeposits: [],
   },
 };
 
@@ -80,32 +88,29 @@ export default function App() {
   const [page, setPage] = useState("Dashboard");
   const [state, setState] = useState(loadState);
 
-  // Cloud sync
+  const updateState = (obj) =>
+    setState((prev) => ({ ...prev, ...obj }));
+
+  // Cloud Sync
   useEffect(() => {
-    async function loadCloud() {
+    async function sync() {
       try {
         const data = await getTransactions();
         setState((prev) => ({
           ...prev,
           transactions: data,
         }));
-      } catch (err) {
-        console.log("Cloud sync unavailable");
-      }
+      } catch {}
     }
 
-    loadCloud();
+    sync();
   }, []);
 
-  // Local persistence
+  // Local Save
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  const updateState = (updates) =>
-    setState((prev) => ({ ...prev, ...updates }));
-
-  // Ignore internal transfers for finance reports
   const financialTransactions = useMemo(
     () => state.transactions.filter((t) => !t.transfer),
     [state.transactions]
@@ -130,7 +135,7 @@ export default function App() {
   const savings = income - spending;
 
   const savingsRate =
-    income > 0 ? Math.round((savings / income) * 100) : 0;
+    income === 0 ? 0 : Math.round((savings / income) * 100);
 
   const totalAssets = state.investments.assets.reduce(
     (s, a) => s + Number(a.value || 0),
@@ -146,11 +151,11 @@ export default function App() {
   const netWorth = totalAssets - totalLiabilities;
 
   function resetAllData() {
-    const confirm = window.prompt(
+    const ok = window.prompt(
       'Type "DELETE ALL LEDGERLY DATA"'
     );
 
-    if (confirm !== "DELETE ALL LEDGERLY DATA") return;
+    if (ok !== "DELETE ALL LEDGERLY DATA") return;
 
     localStorage.removeItem(STORAGE_KEY);
     setState(initialState);
@@ -197,8 +202,8 @@ export default function App() {
         return (
           <Accounts
             accounts={state.accounts}
-            setAccounts={(value) =>
-              updateState({ accounts: value })
+            setAccounts={(v) =>
+              updateState({ accounts: v })
             }
             transactions={state.transactions}
           />
@@ -209,8 +214,8 @@ export default function App() {
           <Transfers
             accounts={state.accounts}
             transactions={state.transactions}
-            setTransactions={(value) =>
-              updateState({ transactions: value })
+            setTransactions={(v) =>
+              updateState({ transactions: v })
             }
           />
         );
@@ -219,12 +224,12 @@ export default function App() {
         return (
           <Recurring
             recurring={state.recurring}
-            setRecurring={(value) =>
-              updateState({ recurring: value })
+            setRecurring={(v) =>
+              updateState({ recurring: v })
             }
             transactions={state.transactions}
-            setTransactions={(value) =>
-              updateState({ transactions: value })
+            setTransactions={(v) =>
+              updateState({ transactions: v })
             }
             categories={state.categories}
             accounts={state.accounts}
@@ -235,8 +240,8 @@ export default function App() {
         return (
           <Subscriptions
             subscriptions={state.subscriptions}
-            setSubscriptions={(value) =>
-              updateState({ subscriptions: value })
+            setSubscriptions={(v) =>
+              updateState({ subscriptions: v })
             }
             categories={state.categories}
             accounts={state.accounts}
@@ -247,8 +252,8 @@ export default function App() {
         return (
           <Budgets
             budgets={state.budgets}
-            setBudgets={(value) =>
-              updateState({ budgets: value })
+            setBudgets={(v) =>
+              updateState({ budgets: v })
             }
             transactions={financialTransactions}
             categories={state.categories}
@@ -259,9 +264,7 @@ export default function App() {
         return (
           <Goals
             goals={state.goals}
-            setGoals={(value) =>
-              updateState({ goals: value })
-            }
+            setGoals={(v) => updateState({ goals: v })}
           />
         );
 
@@ -269,8 +272,18 @@ export default function App() {
         return (
           <Investments
             investments={state.investments}
-            setInvestments={(value) =>
-              updateState({ investments: value })
+            setInvestments={(v) =>
+              updateState({ investments: v })
+            }
+          />
+        );
+
+      case "Portfolio":
+        return (
+          <Portfolio
+            portfolio={state.portfolio}
+            setPortfolio={(v) =>
+              updateState({ portfolio: v })
             }
           />
         );
@@ -284,8 +297,8 @@ export default function App() {
         return (
           <Documents
             documents={state.documents}
-            setDocuments={(value) =>
-              updateState({ documents: value })
+            setDocuments={(v) =>
+              updateState({ documents: v })
             }
           />
         );
@@ -294,9 +307,7 @@ export default function App() {
         return (
           <Rules
             rules={state.rules}
-            setRules={(value) =>
-              updateState({ rules: value })
-            }
+            setRules={(v) => updateState({ rules: v })}
             categories={state.categories}
           />
         );
@@ -326,7 +337,7 @@ export default function App() {
         );
 
       default:
-        return null;
+        return <Dashboard />;
     }
   }
 
