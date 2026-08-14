@@ -1,11 +1,11 @@
 export default function Reports({ transactions = [] }) {
   const income = transactions
     .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((s, t) => s + Number(t.amount), 0);
 
   const expense = transactions
     .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((s, t) => s + Number(t.amount), 0);
 
   const savings = income - expense;
 
@@ -14,37 +14,37 @@ export default function Reports({ transactions = [] }) {
     "Jul","Aug","Sep","Oct","Nov","Dec"
   ];
 
-  const monthly = months.map((name, index) => {
-    const monthTx = transactions.filter(
-      (t) => new Date(t.date).getMonth() === index
+  const monthly = months.map((name, i) => {
+    const list = transactions.filter(
+      (t) => new Date(t.date).getMonth() === i
     );
 
-    const monthIncome = monthTx
+    const inc = list
       .filter((t) => t.type === "income")
       .reduce((s, t) => s + Number(t.amount), 0);
 
-    const monthExpense = monthTx
+    const exp = list
       .filter((t) => t.type === "expense")
       .reduce((s, t) => s + Number(t.amount), 0);
 
     return {
       name,
-      income: monthIncome,
-      expense: monthExpense,
-      savings: monthIncome - monthExpense,
+      income: inc,
+      expense: exp,
+      savings: inc - exp,
     };
   });
 
-  const categoryTotals = {};
+  const categoryMap = {};
 
   transactions
     .filter((t) => t.type === "expense")
     .forEach((t) => {
-      categoryTotals[t.category] =
-        (categoryTotals[t.category] || 0) + Number(t.amount);
+      categoryMap[t.category] =
+        (categoryMap[t.category] || 0) + Number(t.amount);
     });
 
-  const categories = Object.entries(categoryTotals).sort(
+  const categories = Object.entries(categoryMap).sort(
     (a, b) => b[1] - a[1]
   );
 
@@ -53,8 +53,54 @@ export default function Reports({ transactions = [] }) {
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 10);
 
+  function exportCSV() {
+    const rows = [
+      ["Date","Merchant","Category","Type","Amount"],
+      ...transactions.map((t) => [
+        t.date,
+        t.merchant,
+        t.category,
+        t.type,
+        t.amount,
+      ]),
+    ];
+
+    const csv = rows.map((r) => r.join(",")).join("\n");
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "Ledgerly_Report.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPDF() {
+    window.print();
+  }
+
   return (
-    <div className="dashboard">
+    <div className="dashboard" id="report-area">
+      <div className="budgetRow" style={{ marginBottom: 20 }}>
+        <h1>Financial Reports</h1>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={exportCSV}>
+            Export CSV
+          </button>
+
+          <button onClick={exportPDF}>
+            Export PDF
+          </button>
+        </div>
+      </div>
+
       <div className="cards">
         <div className="card">
           <small>Total Income</small>
@@ -134,7 +180,7 @@ export default function Reports({ transactions = [] }) {
           <h2>Expense by Category</h2>
 
           {categories.length === 0 ? (
-            <p>No expense data available.</p>
+            <p>No expense data.</p>
           ) : (
             categories.map(([cat, amount]) => {
               const pct = Math.round(
@@ -145,13 +191,16 @@ export default function Reports({ transactions = [] }) {
                 <div key={cat} style={{ marginBottom: 18 }}>
                   <div className="budgetRow">
                     <span>{cat}</span>
+
                     <strong>
                       ₹{amount.toLocaleString()}
                     </strong>
                   </div>
 
                   <div className="progress">
-                    <div style={{ width: `${pct}%` }} />
+                    <div
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
 
                   <small>{pct}% of spending</small>
@@ -162,12 +211,12 @@ export default function Reports({ transactions = [] }) {
         </div>
 
         <div className="panel">
-          <h2>Top 10 Merchants</h2>
+          <h2>Top Merchants</h2>
 
           {topMerchants.length === 0 ? (
             <p>No transactions.</p>
           ) : (
-            topMerchants.map((tx, index) => (
+            topMerchants.map((tx, i) => (
               <div
                 key={tx.id}
                 className="budgetRow"
@@ -175,7 +224,7 @@ export default function Reports({ transactions = [] }) {
               >
                 <div>
                   <strong>
-                    {index + 1}. {tx.merchant}
+                    {i + 1}. {tx.merchant}
                   </strong>
 
                   <div className="txMeta">
