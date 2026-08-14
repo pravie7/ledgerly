@@ -1,152 +1,79 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  getTransactions,
-  addTransaction,
-} from "../services/api";
-import {
-  parseCSV,
-  normalizeTransaction,
-  removeDuplicates,
-} from "../services/csvImport";
+import { useState } from "react";
+import { addTransaction } from "../services/api";
 
 export default function Transactions({
-  transactions,
+  transactions = [],
   setTransactions,
-  categories,
-  accounts,
+  categories = [],
+  accounts = [],
 }) {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [merchant, setMerchant] = useState("");
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState("expense");
-  const [category, setCategory] = useState(
-    categories[0] || "Other"
-  );
-  const [account, setAccount] = useState(
-    accounts[0]?.name || "Cash"
-  );
-  const [note, setNote] = useState("");
-  const [date, setDate] = useState(today);
-  const [search, setSearch] = useState("");
+  const [form, setForm] = useState({
+    merchant: "",
+    amount: "",
+    type: "expense",
+    category: categories[0] || "Other",
+    account: accounts[0]?.name || "Cash",
+    note: "",
+    date: today,
+  });
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await getTransactions();
-        if (Array.isArray(data)) {
-          setTransactions(data);
-        }
-      } catch {
-        console.log("Using local data");
-      }
-    }
-
-    load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    return transactions.filter((t) => {
-      const value = search.toLowerCase();
-
-      return (
-        t.merchant.toLowerCase().includes(value) ||
-        t.category.toLowerCase().includes(value)
-      );
-    });
-  }, [transactions, search]);
-
-  const income = filtered
+  const income = transactions
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
 
-  const expense = filtered
+  const expense = transactions
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + Number(t.amount), 0);
 
-  async function createTransaction() {
-    if (!merchant || !amount) return;
+  const balance = income - expense;
+
+  function update(field, value) {
+    setForm({ ...form, [field]: value });
+  }
+
+  async function save() {
+    if (!form.merchant || !form.amount) {
+      alert("Merchant and Amount are required");
+      return;
+    }
 
     const tx = {
       id: crypto.randomUUID(),
-      merchant,
-      amount: Number(amount),
-      type,
-      category,
-      account,
-      note,
-      date,
+      ...form,
+      amount: Number(form.amount),
     };
 
     try {
       await addTransaction(tx);
+    } catch {}
 
-      const latest = await getTransactions();
-      setTransactions(latest);
-    } catch {
-      setTransactions([tx, ...transactions]);
-    }
+    setTransactions([tx, ...transactions]);
 
-    resetForm();
-  }
-
-  function resetForm() {
-    setMerchant("");
-    setAmount("");
-    setType("expense");
-    setCategory(categories[0] || "Other");
-    setAccount(accounts[0]?.name || "Cash");
-    setNote("");
-    setDate(today);
-  }
-
-  async function importCSV(event) {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    const text = await file.text();
-
-    const rows = parseCSV(text);
-
-    const converted = rows.map((r) =>
-      normalizeTransaction(r, [])
-    );
-
-    const unique = removeDuplicates(
-      transactions,
-      converted
-    );
-
-    const updated = [...unique, ...transactions];
-
-    setTransactions(updated);
-
-    alert(`${unique.length} new transactions imported`);
-
-    event.target.value = "";
-  }
-
-  function deleteTransaction(id) {
-    if (!confirm("Delete this transaction?")) return;
-
-    setTransactions(
-      transactions.filter((t) => t.id !== id)
-    );
+    setForm({
+      merchant: "",
+      amount: "",
+      type: "expense",
+      category: categories[0] || "Other",
+      account: accounts[0]?.name || "Cash",
+      note: "",
+      date: today,
+    });
   }
 
   return (
     <div className="dashboard">
       <div className="cards">
         <div className="card">
-          <small>Income</small>
+          <small>Total Income</small>
           <h2 style={{ color: "#16A34A" }}>
             ₹{income.toLocaleString()}
           </h2>
         </div>
 
         <div className="card">
-          <small>Expense</small>
+          <small>Total Expense</small>
           <h2 style={{ color: "#DC2626" }}>
             ₹{expense.toLocaleString()}
           </h2>
@@ -155,183 +82,119 @@ export default function Transactions({
         <div className="card">
           <small>Balance</small>
           <h2 style={{ color: "#2563EB" }}>
-            ₹{(income - expense).toLocaleString()}
+            ₹{balance.toLocaleString()}
           </h2>
         </div>
 
         <div className="card">
           <small>Transactions</small>
-          <h2>{filtered.length}</h2>
+          <h2>{transactions.length}</h2>
         </div>
       </div>
 
       <div className="panel">
         <h2>Add Transaction</h2>
 
-        <div className="row">
+        <div className="grid2">
           <input
             placeholder="Merchant"
-            value={merchant}
-            onChange={(e) =>
-              setMerchant(e.target.value)
-            }
+            value={form.merchant}
+            onChange={(e) => update("merchant", e.target.value)}
           />
 
           <input
             type="number"
             placeholder="Amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            value={form.amount}
+            onChange={(e) => update("amount", e.target.value)}
           />
-        </div>
 
-        <div className="row">
           <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
+            value={form.type}
+            onChange={(e) => update("type", e.target.value)}
           >
             <option value="expense">Expense</option>
             <option value="income">Income</option>
           </select>
 
           <select
-            value={category}
-            onChange={(e) =>
-              setCategory(e.target.value)
-            }
+            value={form.category}
+            onChange={(e) => update("category", e.target.value)}
           >
             {categories.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>
-        </div>
 
-        <div className="row">
           <select
-            value={account}
-            onChange={(e) =>
-              setAccount(e.target.value)
-            }
+            value={form.account}
+            onChange={(e) => update("account", e.target.value)}
           >
             {accounts.length === 0 ? (
               <option>Cash</option>
             ) : (
               accounts.map((a) => (
-                <option key={a.name}>{a.name}</option>
+                <option key={a.id}>{a.name}</option>
               ))
             )}
           </select>
 
           <input
             type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            value={form.date}
+            onChange={(e) => update("date", e.target.value)}
           />
-        </div>
 
-        <textarea
-          rows={3}
-          placeholder="Note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-
-        <div className="row">
-          <button onClick={createTransaction}>
-            Add Transaction
-          </button>
-
-          <label
-            className="secondary"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 10,
-              cursor: "pointer",
-              padding: "12px 16px",
-              flex: 1,
-            }}
-          >
-            Import CSV
-
-            <input
-              hidden
-              type="file"
-              accept=".csv"
-              onChange={importCSV}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <textarea
+              rows="3"
+              placeholder="Note (optional)"
+              value={form.note}
+              onChange={(e) => update("note", e.target.value)}
             />
-          </label>
+          </div>
         </div>
+
+        <button onClick={save} style={{ marginTop: 16 }}>
+          Add Transaction
+        </button>
       </div>
 
       <div className="panel">
-        <div className="row">
-          <input
-            placeholder="Search merchant or category..."
-            value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
-          />
-        </div>
+        <h2>All Transactions</h2>
 
-        {filtered.length === 0 ? (
-          <p>No transactions available.</p>
+        {transactions.length === 0 ? (
+          <p>No transactions found.</p>
         ) : (
           <table>
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Merchant</th>
-                <th>Category</th>
                 <th>Account</th>
+                <th>Category</th>
                 <th>Amount</th>
-                <th></th>
               </tr>
             </thead>
 
             <tbody>
-              {filtered.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.date}</td>
-
-                  <td>
-                    <strong>{t.merchant}</strong>
-
-                    {t.note && (
-                      <div className="txMeta">
-                        {t.note}
-                      </div>
-                    )}
-                  </td>
-
-                  <td>{t.category}</td>
-
-                  <td>{t.account}</td>
-
+              {transactions.map((tx) => (
+                <tr key={tx.id}>
+                  <td>{tx.date}</td>
+                  <td>{tx.merchant}</td>
+                  <td>{tx.account}</td>
+                  <td>{tx.category}</td>
                   <td
-                    className={
-                      t.type === "income"
-                        ? "income"
-                        : "expense"
-                    }
+                    style={{
+                      color:
+                        tx.type === "income"
+                          ? "#16A34A"
+                          : "#DC2626",
+                      fontWeight: 600,
+                    }}
                   >
-                    {t.type === "income" ? "+" : "-"}₹
-                    {Number(
-                      t.amount
-                    ).toLocaleString()}
-                  </td>
-
-                  <td>
-                    <button
-                      className="delete"
-                      onClick={() =>
-                        deleteTransaction(t.id)
-                      }
-                    >
-                      Delete
-                    </button>
+                    {tx.type === "income" ? "+" : "-"}₹
+                    {Number(tx.amount).toLocaleString()}
                   </td>
                 </tr>
               ))}
