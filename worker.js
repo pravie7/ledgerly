@@ -2,7 +2,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Health check
+    // Health Check
     if (url.pathname === "/api/health") {
       return Response.json({
         app: "Ledgerly",
@@ -10,19 +10,23 @@ export default {
       });
     }
 
-    // Get all transactions
+    // GET Transactions
     if (
       request.method === "GET" &&
       url.pathname === "/api/transactions"
     ) {
       const { results } = await env.DB.prepare(
-        "SELECT * FROM transactions ORDER BY date DESC"
+        `SELECT * FROM transactions ORDER BY date DESC`
       ).all();
 
-      return Response.json(results);
+      return Response.json(results, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
     }
 
-    // Add transaction
+    // POST Transaction
     if (
       request.method === "POST" &&
       url.pathname === "/api/transactions"
@@ -48,6 +52,19 @@ export default {
         .run();
 
       return Response.json({ success: true });
+    }
+
+    // CORS
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods":
+            "GET,POST,OPTIONS",
+          "Access-Control-Allow-Headers":
+            "Content-Type",
+        },
+      });
     }
 
     return new Response("Ledgerly API");
