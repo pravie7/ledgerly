@@ -1,96 +1,63 @@
-const navigationItems = [
-  {
-    label: "Dashboard",
-    icon: "⌂",
-  },
-  {
-    label: "Transactions",
-    icon: "↕",
-  },
-  {
-    label: "Recurring",
-    icon: "↻",
-  },
-  {
-    label: "Subscriptions",
-    icon: "◉",
-  },
-  {
-    label: "Budgets",
-    icon: "▣",
-  },
-  {
-    label: "Goals",
-    icon: "◎",
-  },
-  {
-    label: "Documents",
-    icon: "▤",
-  },
-  {
-    label: "Rules",
-    icon: "◇",
-  },
-  {
-    label: "Settings",
-    icon: "⚙",
-  },
+const menus = [
+  { name: "Dashboard", icon: "📊" },
+  { name: "Transactions", icon: "💳" },
+  { name: "Recurring", icon: "🔁" },
+  { name: "Subscriptions", icon: "📅" },
+  { name: "Budgets", icon: "🎯" },
+  { name: "Goals", icon: "💰" },
+  { name: "Documents", icon: "📄" },
+  { name: "Rules", icon: "⚙️" },
+  { name: "Settings", icon: "🛠️" },
 ];
 
 export default function Sidebar({ page, setPage }) {
   return (
-    <aside className="sidebar">
-      <div className="sidebarBrand">
-        <div className="brandMark">L</div>
+    <>
+      {/* Desktop Sidebar */}
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brandMark">₹</div>
 
-        <div>
-          <strong className="brandName">
-            Ledgerly
-          </strong>
-
-          <span className="brandSubtitle">
-            Personal Finance
-          </span>
+          <div>
+            <div className="brandName">Ledgerly</div>
+            <div className="brandSubtitle">Personal Finance OS</div>
+          </div>
         </div>
-      </div>
 
-      <nav className="sidebarNav">
-        {navigationItems.map((item) => {
-          const active = page === item.label;
-
-          return (
+        <nav className="desktopNavigation">
+          {menus.map((item) => (
             <button
-              key={item.label}
-              type="button"
-              className={
-                active
-                  ? "navItem active"
-                  : "navItem"
-              }
-              onClick={() => setPage(item.label)}
-              aria-current={
-                active ? "page" : undefined
-              }
+              key={item.name}
+              className={`navItem ${page === item.name ? "active" : ""}`}
+              onClick={() => setPage(item.name)}
             >
-              <span className="navIcon">
-                {item.icon}
-              </span>
-
-              <span className="navLabel">
-                {item.label}
-              </span>
+              <span className="navIcon">{item.icon}</span>
+              {item.name}
             </button>
-          );
-        })}
+          ))}
+        </nav>
+
+        <div className="sidebarFooter">
+          <div>Ledgerly v3.2</div>
+          <div>Offline Ready</div>
+        </div>
+      </aside>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="mobileNavigation">
+        {menus.slice(0, 5).map((item) => (
+          <button
+            key={item.name}
+            className={`mobileNavItem ${
+              page === item.name ? "active" : ""
+            }`}
+            onClick={() => setPage(item.name)}
+          >
+            <span>{item.icon}</span>
+            <small>{item.name}</small>
+          </button>
+        ))}
       </nav>
-
-      <div className="sidebarFooter">
-        <span className="sidebarFooterDot" />
-
-        <span>
-          Private Personal Finance
-        </span>
-      </div>
-    </aside>
+    </>
   );
 }
