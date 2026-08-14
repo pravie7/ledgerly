@@ -11,6 +11,7 @@ const menu = [
   { name: "Reports", icon: "📑" },
   { name: "Documents", icon: "📄" },
   { name: "Rules", icon: "⚙️" },
+  { name: "Notifications", icon: "🔔" },
   { name: "Settings", icon: "🛠️" },
 ];
 
@@ -19,7 +20,7 @@ export default function Sidebar({ page, setPage }) {
     <aside className="sidebar">
       <div className="logo">
         <h2>₹ Ledgerly</h2>
-        <small>Personal Finance OS</small>
+        <p>Personal Finance OS</p>
       </div>
 
       <nav className="menu">
@@ -31,14 +32,14 @@ export default function Sidebar({ page, setPage }) {
             }`}
             onClick={() => setPage(item.name)}
           >
-            <span>{item.icon}</span>
+            <span className="icon">{item.icon}</span>
             <span>{item.name}</span>
           </button>
         ))}
       </nav>
 
       <div className="sidebarFooter">
-        <strong>Ledgerly v6.3</strong>
+        <div className="version">Ledgerly v6.6</div>
         <small>Cloud Sync Enabled</small>
       </div>
     </aside>
