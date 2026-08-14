@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { getTransactions, addTransaction } from "../services/api";
 
 export default function Transactions({
   transactions,
