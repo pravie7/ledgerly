@@ -1,7 +1,8 @@
-const menuItems = [
+const menu = [
   { name: "Dashboard", icon: "📊" },
   { name: "Transactions", icon: "💳" },
   { name: "Accounts", icon: "🏦" },
+  { name: "Transfers", icon: "🔄" },
   { name: "Recurring", icon: "🔁" },
   { name: "Subscriptions", icon: "📅" },
   { name: "Budgets", icon: "🎯" },
@@ -18,11 +19,11 @@ export default function Sidebar({ page, setPage }) {
     <aside className="sidebar">
       <div className="logo">
         <h2>₹ Ledgerly</h2>
-        <p>Personal Finance OS</p>
+        <small>Personal Finance OS</small>
       </div>
 
       <nav className="menu">
-        {menuItems.map((item) => (
+        {menu.map((item) => (
           <button
             key={item.name}
             className={`menuItem ${
@@ -30,14 +31,14 @@ export default function Sidebar({ page, setPage }) {
             }`}
             onClick={() => setPage(item.name)}
           >
-            <span className="icon">{item.icon}</span>
+            <span>{item.icon}</span>
             <span>{item.name}</span>
           </button>
         ))}
       </nav>
 
       <div className="sidebarFooter">
-        <div className="version">Ledgerly v6.0</div>
+        <strong>Ledgerly v6.3</strong>
         <small>Cloud Sync Enabled</small>
       </div>
     </aside>
