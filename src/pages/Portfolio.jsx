@@ -6,36 +6,37 @@ export default function Portfolio({ portfolio, setPortfolio }) {
     fixedDeposits: [],
   };
 
+  const holdings = data.holdings || [];
+  const fixedDeposits = data.fixedDeposits || [];
+
   const [stock, setStock] = useState({
     name: "",
     units: "",
     buyPrice: "",
     currentPrice: "",
+    type: "Equity",
   });
 
   const [fd, setFd] = useState({
     bank: "",
     principal: "",
-    maturity: "",
     rate: "",
+    maturity: "",
   });
 
-  const holdings = data.holdings || [];
-  const fixedDeposits = data.fixedDeposits || [];
-
-  const equityValue = useMemo(
+  const investedValue = useMemo(
     () =>
       holdings.reduce(
-        (sum, h) => sum + Number(h.units) * Number(h.currentPrice),
+        (s, h) => s + Number(h.units) * Number(h.buyPrice),
         0
       ),
     [holdings]
   );
 
-  const investedValue = useMemo(
+  const currentValue = useMemo(
     () =>
       holdings.reduce(
-        (sum, h) => sum + Number(h.units) * Number(h.buyPrice),
+        (s, h) => s + Number(h.units) * Number(h.currentPrice),
         0
       ),
     [holdings]
@@ -43,15 +44,61 @@ export default function Portfolio({ portfolio, setPortfolio }) {
 
   const fdValue = useMemo(
     () =>
-      fixedDeposits.reduce((sum, f) => sum + Number(f.principal), 0),
+      fixedDeposits.reduce(
+        (s, f) => s + Number(f.principal),
+        0
+      ),
     [fixedDeposits]
   );
 
-  const totalValue = equityValue + fdValue;
-  const totalGain = equityValue - investedValue;
+  const totalPortfolio = currentValue + fdValue;
+  const gain = currentValue - investedValue;
+
+  const gainPct =
+    investedValue === 0
+      ? 0
+      : ((gain / investedValue) * 100).toFixed(1);
+
+  const allocation = useMemo(() => {
+    const map = {};
+
+    holdings.forEach((h) => {
+      const value =
+        Number(h.units) * Number(h.currentPrice);
+
+      map[h.type] = (map[h.type] || 0) + value;
+    });
+
+    if (fdValue > 0)
+      map["Fixed Deposit"] =
+        (map["Fixed Deposit"] || 0) + fdValue;
+
+    return Object.entries(map).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }, [holdings, fdValue]);
+
+  const colors = [
+    "#2563EB",
+    "#16A34A",
+    "#F59E0B",
+    "#9333EA",
+    "#DC2626",
+  ];
+
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
 
   function addHolding() {
-    if (!stock.name || !stock.units) return;
+    if (
+      !stock.name ||
+      !stock.units ||
+      !stock.buyPrice ||
+      !stock.currentPrice
+    )
+      return;
 
     setPortfolio({
       ...data,
@@ -69,6 +116,7 @@ export default function Portfolio({ portfolio, setPortfolio }) {
       units: "",
       buyPrice: "",
       currentPrice: "",
+      type: "Equity",
     });
   }
 
@@ -89,8 +137,8 @@ export default function Portfolio({ portfolio, setPortfolio }) {
     setFd({
       bank: "",
       principal: "",
-      maturity: "",
       rate: "",
+      maturity: "",
     });
   }
 
@@ -104,7 +152,9 @@ export default function Portfolio({ portfolio, setPortfolio }) {
   function removeFD(id) {
     setPortfolio({
       ...data,
-      fixedDeposits: fixedDeposits.filter((f) => f.id !== id),
+      fixedDeposits: fixedDeposits.filter(
+        (f) => f.id !== id
+      ),
     });
   }
 
@@ -113,7 +163,7 @@ export default function Portfolio({ portfolio, setPortfolio }) {
       <div className="cards">
         <div className="card">
           <small>Total Portfolio</small>
-          <h2>₹{totalValue.toLocaleString()}</h2>
+          <h2>₹{totalPortfolio.toLocaleString()}</h2>
         </div>
 
         <div className="card">
@@ -122,14 +172,16 @@ export default function Portfolio({ portfolio, setPortfolio }) {
         </div>
 
         <div className="card">
-          <small>Profit / Loss</small>
+          <small>Gain / Loss</small>
           <h2
             style={{
-              color: totalGain >= 0 ? "#16A34A" : "#DC2626",
+              color:
+                gain >= 0 ? "#16A34A" : "#DC2626",
             }}
           >
-            ₹{totalGain.toLocaleString()}
+            ₹{gain.toLocaleString()}
           </h2>
+          <small>{gainPct}%</small>
         </div>
 
         <div className="card">
@@ -140,15 +192,33 @@ export default function Portfolio({ portfolio, setPortfolio }) {
 
       <div className="grid2">
         <div className="panel">
-          <h2>Add Stock / SIP</h2>
+          <h2>Add Holding</h2>
 
           <input
-            placeholder="Fund / Stock Name"
+            placeholder="Stock / Mutual Fund"
             value={stock.name}
             onChange={(e) =>
-              setStock({ ...stock, name: e.target.value })
+              setStock({
+                ...stock,
+                name: e.target.value,
+              })
             }
           />
+
+          <select
+            value={stock.type}
+            onChange={(e) =>
+              setStock({
+                ...stock,
+                type: e.target.value,
+              })
+            }
+          >
+            <option>Equity</option>
+            <option>Mutual Fund</option>
+            <option>Gold ETF</option>
+            <option>Debt Fund</option>
+          </select>
 
           <div className="row">
             <input
@@ -156,7 +226,10 @@ export default function Portfolio({ portfolio, setPortfolio }) {
               placeholder="Units"
               value={stock.units}
               onChange={(e) =>
-                setStock({ ...stock, units: e.target.value })
+                setStock({
+                  ...stock,
+                  units: e.target.value,
+                })
               }
             />
 
@@ -200,7 +273,10 @@ export default function Portfolio({ portfolio, setPortfolio }) {
             placeholder="Bank Name"
             value={fd.bank}
             onChange={(e) =>
-              setFd({ ...fd, bank: e.target.value })
+              setFd({
+                ...fd,
+                bank: e.target.value,
+              })
             }
           />
 
@@ -219,10 +295,13 @@ export default function Portfolio({ portfolio, setPortfolio }) {
 
             <input
               type="number"
-              placeholder="Rate %"
+              placeholder="Interest %"
               value={fd.rate}
               onChange={(e) =>
-                setFd({ ...fd, rate: e.target.value })
+                setFd({
+                  ...fd,
+                  rate: e.target.value,
+                })
               }
             />
           </div>
@@ -247,6 +326,199 @@ export default function Portfolio({ portfolio, setPortfolio }) {
         </div>
       </div>
 
+      <div className="grid2">
+        <div className="panel">
+          <h2>Asset Allocation</h2>
+
+          {allocation.length === 0 ? (
+            <p>No investments yet.</p>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  margin: "16px 0 20px",
+                }}
+              >
+                <svg
+                  width="160"
+                  height="160"
+                  viewBox="0 0 140 140"
+                >
+                  <circle
+                    cx="70"
+                    cy="70"
+                    r={radius}
+                    fill="none"
+                    stroke="#E5E7EB"
+                    strokeWidth="16"
+                  />
+
+                  {allocation.map((a, i) => {
+                    const pct =
+                      a.value / totalPortfolio;
+                    const len =
+                      circumference * pct;
+                    const circle = (
+                      <circle
+                        key={a.name}
+                        cx="70"
+                        cy="70"
+                        r={radius}
+                        fill="none"
+                        stroke={colors[i % colors.length]}
+                        strokeWidth="16"
+                        strokeDasharray={`${len} ${circumference}`}
+                        strokeDashoffset={-offset}
+                        strokeLinecap="round"
+                        transform="rotate(-90 70 70)"
+                      />
+                    );
+                    offset += len;
+                    return circle;
+                  })}
+
+                  <text
+                    x="70"
+                    y="66"
+                    textAnchor="middle"
+                    fontSize="9"
+                    fill="#64748B"
+                  >
+                    Total
+                  </text>
+                  <text
+                    x="70"
+                    y="80"
+                    textAnchor="middle"
+                    fontSize="11"
+                    fontWeight="bold"
+                  >
+                    ₹{Math.round(totalPortfolio / 1000)}K
+                  </text>
+                </svg>
+              </div>
+
+              {allocation.map((a, i) => (
+                <div
+                  key={a.name}
+                  className="budgetRow"
+                  style={{ marginBottom: 10 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 99,
+                        background:
+                          colors[i % colors.length],
+                      }}
+                    />
+                    {a.name}
+                  </div>
+
+                  <strong>
+                    {(
+                      (a.value / totalPortfolio) *
+                      100
+                    ).toFixed(0)}
+                    %
+                  </strong>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        <div className="panel">
+          <h2>Performance</h2>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 18,
+            }}
+          >
+            <div>
+              <div className="budgetRow">
+                <span>Invested</span>
+                <strong>
+                  ₹{investedValue.toLocaleString()}
+                </strong>
+              </div>
+
+              <div className="progress">
+                <div style={{ width: "100%" }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="budgetRow">
+                <span>Current Value</span>
+                <strong>
+                  ₹{currentValue.toLocaleString()}
+                </strong>
+              </div>
+
+              <div className="progress">
+                <div
+                  style={{
+                    width: `${
+                      investedValue === 0
+                        ? 0
+                        : Math.min(
+                            (currentValue /
+                              investedValue) *
+                              100,
+                            100
+                          )
+                    }%`,
+                    background:
+                      gain >= 0
+                        ? "#16A34A"
+                        : "#DC2626",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                background: "#F8FAFC",
+              }}
+            >
+              <small>Total Return</small>
+
+              <h2
+                style={{
+                  color:
+                    gain >= 0
+                      ? "#16A34A"
+                      : "#DC2626",
+                }}
+              >
+                {gainPct}%
+              </h2>
+
+              <div className="txMeta">
+                Profit ₹{gain.toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="panel">
         <h2>Portfolio Holdings</h2>
 
@@ -257,33 +529,56 @@ export default function Portfolio({ portfolio, setPortfolio }) {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Type</th>
                 <th>Units</th>
-                <th>Current Value</th>
+                <th>Current</th>
+                <th>Gain</th>
                 <th></th>
               </tr>
             </thead>
+
             <tbody>
-              {holdings.map((h) => (
-                <tr key={h.id}>
-                  <td>{h.name}</td>
-                  <td>{h.units}</td>
-                  <td>
-                    ₹
-                    {(
-                      Number(h.units) *
-                      Number(h.currentPrice)
-                    ).toLocaleString()}
-                  </td>
-                  <td>
-                    <button
-                      className="delete"
-                      onClick={() => removeHolding(h.id)}
+              {holdings.map((h) => {
+                const value =
+                  Number(h.units) *
+                  Number(h.currentPrice);
+                const invested =
+                  Number(h.units) *
+                  Number(h.buyPrice);
+                const profit =
+                  value - invested;
+
+                return (
+                  <tr key={h.id}>
+                    <td>{h.name}</td>
+                    <td>{h.type}</td>
+                    <td>{h.units}</td>
+                    <td>
+                      ₹{value.toLocaleString()}
+                    </td>
+                    <td
+                      style={{
+                        color:
+                          profit >= 0
+                            ? "#16A34A"
+                            : "#DC2626",
+                      }}
                     >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      ₹{profit.toLocaleString()}
+                    </td>
+                    <td>
+                      <button
+                        className="delete"
+                        onClick={() =>
+                          removeHolding(h.id)
+                        }
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -305,19 +600,25 @@ export default function Portfolio({ portfolio, setPortfolio }) {
                 <th></th>
               </tr>
             </thead>
+
             <tbody>
               {fixedDeposits.map((f) => (
                 <tr key={f.id}>
                   <td>{f.bank}</td>
                   <td>
-                    ₹{Number(f.principal).toLocaleString()}
+                    ₹
+                    {Number(
+                      f.principal
+                    ).toLocaleString()}
                   </td>
                   <td>{f.rate}%</td>
                   <td>{f.maturity}</td>
                   <td>
                     <button
                       className="delete"
-                      onClick={() => removeFD(f.id)}
+                      onClick={() =>
+                        removeFD(f.id)
+                      }
                     >
                       Delete
                     </button>
