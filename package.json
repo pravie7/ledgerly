@@ -1,3 +1,4 @@
+"@cloudflare/vite-plugin": "^1.13.0"
 {
   "name": "ledgerly",
   "private": true,
