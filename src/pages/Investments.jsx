@@ -1,27 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
-const defaultAssets = [
-  { name: "Bank Balance", value: 0 },
-  { name: "EPF", value: 0 },
-  { name: "PPF", value: 0 },
-  { name: "Mutual Funds", value: 0 },
-  { name: "Gold", value: 0 },
-  { name: "Land", value: 0 },
-  { name: "Car", value: 0 },
-];
-
-const defaultLiabilities = [
-  { name: "Home Loan", value: 0 },
-  { name: "Car Loan", value: 0 },
-  { name: "Credit Card", value: 0 },
-  { name: "Personal Loan", value: 0 },
-];
-
-export default function Investments() {
-  const [assets, setAssets] = useState(defaultAssets);
-  const [liabilities, setLiabilities] = useState(
-    defaultLiabilities
-  );
+export default function Investments({
+  investments,
+  setInvestments,
+}) {
+  const assets = investments.assets;
+  const liabilities = investments.liabilities;
 
   const totalAssets = useMemo(
     () =>
@@ -43,13 +27,16 @@ export default function Investments() {
   function updateAsset(index, value) {
     const copy = [...assets];
     copy[index].value = Number(value);
-    setAssets(copy);
+    setInvestments({ ...investments, assets: copy });
   }
 
   function updateLiability(index, value) {
     const copy = [...liabilities];
     copy[index].value = Number(value);
-    setLiabilities(copy);
+    setInvestments({
+      ...investments,
+      liabilities: copy,
+    });
   }
 
   return (
@@ -93,19 +80,19 @@ export default function Investments() {
         <div className="panel">
           <h2>Assets</h2>
 
-          {assets.map((a, i) => (
+          {assets.map((item, index) => (
             <div
+              key={item.name}
               className="budgetRow"
-              key={a.name}
-              style={{ marginBottom: 12 }}
+              style={{ marginBottom: 14 }}
             >
-              <span>{a.name}</span>
+              <span>{item.name}</span>
 
               <input
                 type="number"
-                value={a.value}
+                value={item.value}
                 onChange={(e) =>
-                  updateAsset(i, e.target.value)
+                  updateAsset(index, e.target.value)
                 }
                 style={{ width: 140 }}
               />
@@ -116,19 +103,19 @@ export default function Investments() {
         <div className="panel">
           <h2>Liabilities</h2>
 
-          {liabilities.map((l, i) => (
+          {liabilities.map((item, index) => (
             <div
+              key={item.name}
               className="budgetRow"
-              key={l.name}
-              style={{ marginBottom: 12 }}
+              style={{ marginBottom: 14 }}
             >
-              <span>{l.name}</span>
+              <span>{item.name}</span>
 
               <input
                 type="number"
-                value={l.value}
+                value={item.value}
                 onChange={(e) =>
-                  updateLiability(i, e.target.value)
+                  updateLiability(index, e.target.value)
                 }
                 style={{ width: 140 }}
               />
@@ -140,28 +127,26 @@ export default function Investments() {
       <div className="panel">
         <h2>Asset Allocation</h2>
 
-        {assets.map((a) => {
-          const percent =
+        {assets.map((item) => {
+          const pct =
             totalAssets === 0
               ? 0
-              : Math.round((a.value / totalAssets) * 100);
+              : Math.round(
+                  (item.value / totalAssets) * 100
+                );
 
           return (
             <div
-              key={a.name}
+              key={item.name}
               style={{ marginBottom: 18 }}
             >
               <div className="budgetRow">
-                <span>{a.name}</span>
-                <strong>{percent}%</strong>
+                <span>{item.name}</span>
+                <strong>{pct}%</strong>
               </div>
 
               <div className="progress">
-                <div
-                  style={{
-                    width: `${percent}%`,
-                  }}
-                />
+                <div style={{ width: `${pct}%` }} />
               </div>
             </div>
           );
