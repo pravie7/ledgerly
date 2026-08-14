@@ -1,4 +1,4 @@
-const menu = [
+const menuItems = [
   { name: "Dashboard", icon: "📊" },
   { name: "Transactions", icon: "💳" },
   { name: "Accounts", icon: "🏦" },
@@ -8,6 +8,7 @@ const menu = [
   { name: "Budgets", icon: "🎯" },
   { name: "Goals", icon: "💰" },
   { name: "Investments", icon: "📈" },
+  { name: "Portfolio", icon: "💼" },
   { name: "Reports", icon: "📑" },
   { name: "Documents", icon: "📄" },
   { name: "Rules", icon: "⚙️" },
@@ -24,7 +25,7 @@ export default function Sidebar({ page, setPage }) {
       </div>
 
       <nav className="menu">
-        {menu.map((item) => (
+        {menuItems.map((item) => (
           <button
             key={item.name}
             className={`menuItem ${
@@ -39,7 +40,8 @@ export default function Sidebar({ page, setPage }) {
       </nav>
 
       <div className="sidebarFooter">
-        <div className="version">Ledgerly v6.6</div>
+        <div className="version">Ledgerly v7.0</div>
+        <small>Wealth Management Edition</small>
         <small>Cloud Sync Enabled</small>
       </div>
     </aside>
