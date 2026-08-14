@@ -8,6 +8,7 @@ const menus = [
   ["Investments", "📈"],
   ["Documents", "📄"],
   ["Rules", "⚙️"],
+  ["Reports", "📑"],
   ["Settings", "🛠️"],
 ];
 
