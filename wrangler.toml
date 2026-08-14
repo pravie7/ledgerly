@@ -1,0 +1,10 @@
+name = "ledgerly-api"
+compatibility_date = "2026-08-14"
+
+[assets]
+directory = "./dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ledgerly-db"
+database_id = "3efc931f-0818-4bc2-8d9d-b35e5c0a9b3d"
