@@ -3,130 +3,166 @@ import { useMemo, useState } from "react";
 export default function Recurring({
   recurring = [],
   setRecurring,
-  categories = [],
-  accounts = [],
+  transactions = [],
+  setTransactions,
 }) {
+  const today = new Date().toISOString().slice(0, 10);
+
   const [form, setForm] = useState({
     name: "",
     amount: "",
-    category: categories[0] || "Utilities",
-    account: accounts[0]?.name || "Cash",
+    category: "Utilities",
+    account: "Cash",
     frequency: "Monthly",
-    nextDate: new Date().toISOString().slice(0, 10),
+    nextDate: today,
   });
 
-  const totalMonthly = useMemo(() => {
-    return recurring.reduce((sum, item) => {
-      const amount = Number(item.amount);
-
-      switch (item.frequency) {
-        case "Weekly":
-          return sum + amount * 4;
-        case "Yearly":
-          return sum + amount / 12;
-        default:
-          return sum + amount;
-      }
-    }, 0);
+  const monthlyCommitment = useMemo(() => {
+    return recurring
+      .filter((r) => r.active)
+      .reduce((sum, r) => sum + Number(r.amount), 0);
   }, [recurring]);
 
-  function update(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
+  const update = (k, v) =>
+    setForm((p) => ({ ...p, [k]: v }));
 
   function addRecurring() {
-    if (!form.name || !form.amount) {
-      alert("Name and amount are required.");
-      return;
-    }
+    if (!form.name || !form.amount) return;
 
-    const newItem = {
-      id: crypto.randomUUID(),
-      ...form,
-      amount: Number(form.amount),
-      active: true,
-    };
-
-    setRecurring([newItem, ...recurring]);
+    setRecurring([
+      {
+        id: crypto.randomUUID(),
+        ...form,
+        amount: Number(form.amount),
+        active: true,
+      },
+      ...recurring,
+    ]);
 
     setForm({
       name: "",
       amount: "",
-      category: categories[0] || "Utilities",
-      account: accounts[0]?.name || "Cash",
+      category: "Utilities",
+      account: "Cash",
       frequency: "Monthly",
-      nextDate: new Date().toISOString().slice(0, 10),
+      nextDate: today,
     });
   }
 
-  function toggle(id) {
+  function markPaid(item) {
+    const alreadyPaid = transactions.some(
+      (t) =>
+        t.recurringId === item.id &&
+        t.date === item.nextDate
+    );
+
+    if (alreadyPaid) {
+      alert("Already paid.");
+      return;
+    }
+
+    const tx = {
+      id: crypto.randomUUID(),
+      recurringId: item.id,
+      merchant: item.name,
+      amount: Number(item.amount),
+      type: "expense",
+      category: item.category,
+      account: item.account,
+      note: "Recurring Payment",
+      date: item.nextDate,
+    };
+
+    setTransactions([tx, ...transactions]);
+
+    const next = new Date(item.nextDate);
+
+    if (item.frequency === "Weekly")
+      next.setDate(next.getDate() + 7);
+
+    if (item.frequency === "Monthly")
+      next.setMonth(next.getMonth() + 1);
+
+    if (item.frequency === "Yearly")
+      next.setFullYear(next.getFullYear() + 1);
+
     setRecurring(
-      recurring.map((item) =>
-        item.id === id
-          ? { ...item, active: !item.active }
-          : item
+      recurring.map((r) =>
+        r.id === item.id
+          ? {
+              ...r,
+              nextDate: next
+                .toISOString()
+                .slice(0, 10),
+            }
+          : r
       )
     );
   }
 
-  function remove(id) {
-    setRecurring(recurring.filter((item) => item.id !== id));
-  }
+  const dueBills = recurring.filter(
+    (r) => r.active && r.nextDate <= today
+  );
 
   return (
     <div className="dashboard">
       <div className="cards">
         <div className="card">
-          <small>Recurring Bills</small>
-          <h2>{recurring.length}</h2>
+          <small>Active Bills</small>
+          <h2>{recurring.filter((r) => r.active).length}</h2>
+        </div>
+
+        <div className="card">
+          <small>Due Today</small>
+          <h2 style={{ color: "#DC2626" }}>
+            {dueBills.length}
+          </h2>
         </div>
 
         <div className="card">
           <small>Monthly Commitment</small>
-          <h2 style={{ color: "#DC2626" }}>
-            ₹{Math.round(totalMonthly).toLocaleString()}
+          <h2>
+            ₹{monthlyCommitment.toLocaleString()}
           </h2>
         </div>
       </div>
 
       <div className="panel">
-        <h2>Add Recurring Payment</h2>
+        <h2>Add Recurring Bill</h2>
 
         <div className="grid2">
           <input
             placeholder="Netflix / Rent / EMI"
             value={form.name}
-            onChange={(e) => update("name", e.target.value)}
+            onChange={(e) =>
+              update("name", e.target.value)
+            }
           />
 
           <input
             type="number"
             placeholder="Amount"
             value={form.amount}
-            onChange={(e) => update("amount", e.target.value)}
+            onChange={(e) =>
+              update("amount", e.target.value)
+            }
           />
 
-          <select
+          <input
+            placeholder="Category"
             value={form.category}
-            onChange={(e) => update("category", e.target.value)}
-          >
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+            onChange={(e) =>
+              update("category", e.target.value)
+            }
+          />
 
-          <select
+          <input
+            placeholder="Account"
             value={form.account}
-            onChange={(e) => update("account", e.target.value)}
-          >
-            {accounts.length === 0 ? (
-              <option>Cash</option>
-            ) : (
-              accounts.map((a) => (
-                <option key={a.id}>{a.name}</option>
-              ))
-            )}
-          </select>
+            onChange={(e) =>
+              update("account", e.target.value)
+            }
+          />
 
           <select
             value={form.frequency}
@@ -142,7 +178,9 @@ export default function Recurring({
           <input
             type="date"
             value={form.nextDate}
-            onChange={(e) => update("nextDate", e.target.value)}
+            onChange={(e) =>
+              update("nextDate", e.target.value)
+            }
           />
         </div>
 
@@ -150,66 +188,72 @@ export default function Recurring({
           onClick={addRecurring}
           style={{ marginTop: 16 }}
         >
-          Add Recurring Bill
+          Add Bill
         </button>
       </div>
 
       <div className="panel">
-        <h2>Upcoming Payments</h2>
+        <h2>Due Payments</h2>
 
-        {recurring.length === 0 ? (
-          <p>No recurring payments added.</p>
+        {dueBills.length === 0 ? (
+          <p>No bills due today.</p>
         ) : (
-          recurring.map((item) => (
+          dueBills.map((bill) => (
             <div
-              key={item.id}
+              key={bill.id}
               className="budgetRow"
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 14 }}
             >
               <div>
-                <strong>{item.name}</strong>
+                <strong>{bill.name}</strong>
 
                 <div className="txMeta">
-                  {item.frequency} • {item.account} • Due{" "}
-                  {item.nextDate}
+                  {bill.account} • {bill.nextDate}
                 </div>
               </div>
 
               <div style={{ textAlign: "right" }}>
                 <strong>
-                  ₹{Number(item.amount).toLocaleString()}
+                  ₹{Number(bill.amount).toLocaleString()}
                 </strong>
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    justifyContent: "flex-end",
-                    marginTop: 6,
-                  }}
-                >
+                <div style={{ marginTop: 6 }}>
                   <button
-                    onClick={() => toggle(item.id)}
-                    style={{
-                      fontSize: 12,
-                      padding: "4px 8px",
-                    }}
+                    onClick={() => markPaid(bill)}
                   >
-                    {item.active ? "Pause" : "Resume"}
-                  </button>
-
-                  <button
-                    className="delete"
-                    onClick={() => remove(item.id)}
-                    style={{
-                      fontSize: 12,
-                      padding: "4px 8px",
-                    }}
-                  >
-                    Delete
+                    Mark Paid
                   </button>
                 </div>
               </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="panel">
+        <h2>All Recurring Bills</h2>
+
+        {recurring.length === 0 ? (
+          <p>No recurring bills.</p>
+        ) : (
+          recurring.map((bill) => (
+            <div
+              key={bill.id}
+              className="budgetRow"
+              style={{ marginBottom: 12 }}
+            >
+              <div>
+                <strong>{bill.name}</strong>
+
+                <div className="txMeta">
+                  {bill.frequency} • Next:{" "}
+                  {bill.nextDate}
+                </div>
+              </div>
+
+              <span>
+                ₹{Number(bill.amount).toLocaleString()}
+              </span>
             </div>
           ))
         )}
