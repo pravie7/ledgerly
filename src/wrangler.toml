@@ -8,4 +8,4 @@ directory = "./dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "ledgerly-db"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "3efc931f-0818-4bc2-8d9d-b35e5c0a9b3d"
