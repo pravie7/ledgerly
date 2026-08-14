@@ -71,24 +71,24 @@ export default function Documents({
     try {
       setLoading(true);
 
-      await importTransactions(rows);
+      const result = await importTransactions(rows);
 
       const history = {
         id: Date.now(),
         name: fileName,
         uploadedAt: new Date().toLocaleString(),
-        count: rows.length,
+        count: result.imported,
       };
 
       setDocuments([...documents, history]);
 
       alert(
-        `${rows.length} transactions imported to Cloud successfully.`
+        `Imported: ${result.imported}\nDuplicates: ${result.duplicates}`
       );
 
       setRows([]);
       setFileName("");
-    } catch (e) {
+    } catch (err) {
       alert("Import failed.");
     } finally {
       setLoading(false);
@@ -100,7 +100,7 @@ export default function Documents({
       <div className="panel">
         <h2>CSV Bank Statement Import</h2>
 
-        <p style={{ marginBottom: 16 }}>
+        <p style={{ color: "#64748B", marginBottom: 18 }}>
           Supports HDFC, ICICI, SBI and Axis CSV statements.
         </p>
 
@@ -111,7 +111,7 @@ export default function Documents({
         />
 
         {fileName && (
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 18 }}>
             <strong>{fileName}</strong>
             <p>{rows.length} transactions detected</p>
           </div>
@@ -119,13 +119,11 @@ export default function Documents({
 
         {rows.length > 0 && (
           <button
-            style={{ marginTop: 16 }}
             onClick={uploadToCloud}
             disabled={loading}
+            style={{ marginTop: 16 }}
           >
-            {loading
-              ? "Uploading..."
-              : "Import to Cloud"}
+            {loading ? "Uploading..." : "Import to Cloud"}
           </button>
         )}
       </div>
@@ -151,9 +149,7 @@ export default function Documents({
                 <tr key={r.id}>
                   <td>{r.date}</td>
                   <td>{r.merchant}</td>
-                  <td>
-                    ₹{Number(r.amount).toLocaleString()}
-                  </td>
+                  <td>₹{Number(r.amount).toLocaleString()}</td>
                   <td>{r.type}</td>
                 </tr>
               ))}
@@ -168,20 +164,20 @@ export default function Documents({
         {documents.length === 0 ? (
           <p>No imported files.</p>
         ) : (
-          documents.map((d) => (
+          documents.map((doc) => (
             <div
-              key={d.id}
+              key={doc.id}
               className="budgetRow"
               style={{ marginBottom: 14 }}
             >
               <div>
-                <strong>{d.name}</strong>
+                <strong>{doc.name}</strong>
                 <div className="txMeta">
-                  {d.count} transactions • {d.uploadedAt}
+                  {doc.count} transactions • {doc.uploadedAt}
                 </div>
               </div>
 
-              <span className="badge">Cloud</span>
+              <span className="badge">Imported</span>
             </div>
           ))
         )}
