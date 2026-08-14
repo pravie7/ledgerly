@@ -1,0 +1,11 @@
+name = "ledgerly"
+main = "worker.js"
+compatibility_date = "2026-08-14"
+
+[assets]
+directory = "./dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ledgerly-db"
+database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
