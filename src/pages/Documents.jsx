@@ -1,458 +1,198 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-const documentTypes = [
+const types = [
+  "Receipt",
+  "Invoice",
   "Bank Statement",
-  "Credit Card",
-  "Loan",
   "Insurance",
-  "Investment",
-  "Tax",
-  "Salary",
+  "Warranty",
+  "Tax Document",
+  "ID Proof",
   "Other",
 ];
 
-function formatCurrency(value) {
-  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
-}
-
-function formatDate(value) {
-  if (!value) return "—";
-
-  const date = new Date(`${value}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-export default function Documents() {
-  const [documents, setDocuments] = useState(() => {
-    try {
-      const saved = localStorage.getItem(
-        "ledgerly_documents"
-      );
-
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [name, setName] = useState("");
-  const [type, setType] = useState("Bank Statement");
-  const [institution, setInstitution] = useState("");
-  const [date, setDate] = useState("");
-  const [amount, setAmount] = useState("");
+export default function Documents({
+  documents,
+  setDocuments,
+}) {
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState("Receipt");
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("All");
 
-  useEffect(() => {
-    localStorage.setItem(
-      "ledgerly_documents",
-      JSON.stringify(documents)
-    );
-  }, [documents]);
-
-  const filteredDocuments = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return documents.filter((document) => {
-      const matchesSearch =
-        !query ||
-        String(document.name || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(document.institution || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(document.type || "")
-          .toLowerCase()
-          .includes(query);
-
-      const matchesType =
-        filterType === "All" ||
-        document.type === filterType;
-
-      return matchesSearch && matchesType;
+  const filtered = useMemo(() => {
+    return documents.filter((d) => {
+      return (
+        d.title.toLowerCase().includes(search.toLowerCase()) ||
+        d.type.toLowerCase().includes(search.toLowerCase())
+      );
     });
-  }, [documents, search, filterType]);
+  }, [documents, search]);
 
-  const totalDocuments = documents.length;
+  function uploadFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const totalAmount = useMemo(() => {
-    return documents.reduce(
-      (total, document) =>
-        total + Number(document.amount || 0),
-      0
-    );
-  }, [documents]);
+    const reader = new FileReader();
 
-  function addDocument() {
-    const cleanName = name.trim();
+    reader.onload = () => {
+      const item = {
+        id: crypto.randomUUID(),
+        title: title || file.name,
+        type,
+        name: file.name,
+        size: Math.round(file.size / 1024),
+        uploaded: new Date().toISOString().slice(0, 10),
+        data: reader.result,
+      };
 
-    if (!cleanName) {
-      alert("Please enter a document name.");
-      return;
-    }
+      setDocuments([item, ...documents]);
 
-    const duplicate = documents.some(
-      (document) =>
-        String(document.name || "")
-          .toLowerCase() === cleanName.toLowerCase() &&
-        String(document.type || "") === type
-    );
-
-    if (duplicate) {
-      alert("This document already exists.");
-      return;
-    }
-
-    const newDocument = {
-      id: crypto.randomUUID(),
-      name: cleanName,
-      type,
-      institution: institution.trim(),
-      date,
-      amount: Number(amount || 0),
-      createdAt: new Date().toISOString(),
+      setTitle("");
+      setType("Receipt");
     };
 
-    setDocuments([
-      newDocument,
-      ...documents,
-    ]);
-
-    setName("");
-    setType("Bank Statement");
-    setInstitution("");
-    setDate("");
-    setAmount("");
+    reader.readAsDataURL(file);
   }
 
-  function deleteDocument(id) {
-    if (!window.confirm("Delete this document record?")) {
-      return;
-    }
-
-    setDocuments(
-      documents.filter(
-        (document) => document.id !== id
-      )
-    );
-  }
-
-  function clearAllDocuments() {
-    if (documents.length === 0) {
-      return;
-    }
-
-    if (
-      !window.confirm(
-        "Delete all document records? This cannot be undone."
-      )
-    ) {
-      return;
-    }
-
-    setDocuments([]);
+  function remove(id) {
+    if (!confirm("Delete document?")) return;
+    setDocuments(documents.filter((d) => d.id !== id));
   }
 
   return (
-    <div className="pageStack">
-      <section className="heroSection">
-        <div>
-          <h1>Documents</h1>
-
-          <p>
-            Keep a simple record of your important
-            financial documents.
-          </p>
-        </div>
-      </section>
-
-      <section className="statGrid">
-        <div className="statCard">
-          <span className="statLabel">
-            Documents
-          </span>
-
-          <strong className="statValue">
-            {totalDocuments}
-          </strong>
-
-          <span className="statHint">
-            Saved document records
-          </span>
+    <div className="dashboard">
+      <div className="cards">
+        <div className="card">
+          <small>Total Documents</small>
+          <h2>{documents.length}</h2>
         </div>
 
-        <div className="statCard">
-          <span className="statLabel">
-            Recorded Amount
-          </span>
-
-          <strong className="statValue">
-            {formatCurrency(totalAmount)}
-          </strong>
-
-          <span className="statHint">
-            Total amount attached to records
-          </span>
-        </div>
-
-        <div className="statCard">
-          <span className="statLabel">
-            Document Types
-          </span>
-
-          <strong className="statValue">
-            {new Set(
-              documents.map(
-                (document) => document.type
-              )
-            ).size}
-          </strong>
-
-          <span className="statHint">
-            Categories currently used
-          </span>
-        </div>
-
-        <div className="statCard">
-          <span className="statLabel">
-            Storage
-          </span>
-
-          <strong className="statValue">
-            Local
-          </strong>
-
-          <span className="statHint">
-            Saved in this browser
-          </span>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <h2>Add Document Record</h2>
-
-            <p>
-              Ledgerly currently stores document
-              information, not uploaded files.
-            </p>
-          </div>
-        </div>
-
-        <div className="formGrid">
-          <div className="formField">
-            <label>Document Name</label>
-
-            <input
-              type="text"
-              placeholder="HDFC Bank Statement - July"
-              value={name}
-              onChange={(event) =>
-                setName(event.target.value)
-              }
-            />
-          </div>
-
-          <div className="formField">
-            <label>Document Type</label>
-
-            <select
-              value={type}
-              onChange={(event) =>
-                setType(event.target.value)
-              }
-            >
-              {documentTypes.map((item) => (
-                <option
-                  key={item}
-                  value={item}
-                >
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="formField">
-            <label>Institution</label>
-
-            <input
-              type="text"
-              placeholder="HDFC Bank"
-              value={institution}
-              onChange={(event) =>
-                setInstitution(
-                  event.target.value
-                )
-              }
-            />
-          </div>
-
-          <div className="formField">
-            <label>Document Date</label>
-
-            <input
-              type="date"
-              value={date}
-              onChange={(event) =>
-                setDate(event.target.value)
-              }
-            />
-          </div>
-
-          <div className="formField">
-            <label>Amount (Optional)</label>
-
-            <input
-              type="number"
-              min="0"
-              placeholder="0"
-              value={amount}
-              onChange={(event) =>
-                setAmount(event.target.value)
-              }
-            />
-          </div>
-        </div>
-
-        <button onClick={addDocument}>
-          + Add Document
-        </button>
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <h2>Document Records</h2>
-
-            <p>
-              Search and manage your saved financial
-              document records.
-            </p>
-          </div>
-
-          {documents.length > 0 && (
-            <button
-              className="delete"
-              onClick={clearAllDocuments}
-            >
-              Clear All
-            </button>
-          )}
-        </div>
-
-        <div className="filterBar">
-          <input
-            type="text"
-            placeholder="Search documents..."
-            value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
+        <div className="card">
+          <small>Receipts</small>
+          <h2>
+            {
+              documents.filter((d) => d.type === "Receipt").length
             }
-          />
+          </h2>
+        </div>
 
+        <div className="card">
+          <small>Invoices</small>
+          <h2>
+            {
+              documents.filter((d) => d.type === "Invoice").length
+            }
+          </h2>
+        </div>
+
+        <div className="card">
+          <small>Bank Statements</small>
+          <h2>
+            {
+              documents.filter(
+                (d) => d.type === "Bank Statement"
+              ).length
+            }
+          </h2>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Upload Document</h2>
+
+        <input
+          placeholder="Document Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+
+        <div className="row">
           <select
-            value={filterType}
-            onChange={(event) =>
-              setFilterType(event.target.value)
-            }
+            value={type}
+            onChange={(e) => setType(e.target.value)}
           >
-            <option value="All">All Types</option>
-
-            {documentTypes.map((item) => (
-              <option
-                key={item}
-                value={item}
-              >
-                {item}
-              </option>
+            {types.map((t) => (
+              <option key={t}>{t}</option>
             ))}
           </select>
+
+          <input
+            type="file"
+            accept=".pdf,image/*"
+            onChange={uploadFile}
+          />
         </div>
 
-        {filteredDocuments.length === 0 ? (
-          <div className="emptyState">
-            <div className="emptyIcon">▤</div>
+        <small style={{ color: "#6B7280" }}>
+          Supported: PDF, JPG, PNG
+        </small>
+      </div>
 
-            <h3>
-              {documents.length === 0
-                ? "No documents yet"
-                : "No matching documents"}
-            </h3>
+      <div className="panel">
+        <div className="row">
+          <input
+            placeholder="Search documents..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
-            <p>
-              {documents.length === 0
-                ? "Add your first financial document record above."
-                : "Try changing your search or filter."}
-            </p>
-          </div>
+        {filtered.length === 0 ? (
+          <p>No documents uploaded.</p>
         ) : (
-          <div className="documentList">
-            {filteredDocuments.map((document) => (
-              <div
-                className="documentCard"
-                key={document.id}
-              >
-                <div className="documentMain">
-                  <div className="documentIcon">
-                    ▤
-                  </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Size</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
 
-                  <div>
-                    <h3>
-                      {document.name}
-                    </h3>
+            <tbody>
+              {filtered.map((doc) => (
+                <tr key={doc.id}>
+                  <td>
+                    <strong>{doc.title}</strong>
+                    <div className="txMeta">{doc.name}</div>
+                  </td>
 
-                    <span className="documentMeta">
-                      {document.type}
+                  <td>{doc.type}</td>
 
-                      {document.institution
-                        ? ` · ${document.institution}`
-                        : ""}
+                  <td>{doc.size} KB</td>
 
-                      {document.date
-                        ? ` · ${formatDate(
-                            document.date
-                          )}`
-                        : ""}
-                    </span>
-                  </div>
-                </div>
+                  <td>{doc.uploaded}</td>
 
-                <div className="documentRight">
-                  <strong>
-                    {formatCurrency(
-                      document.amount
-                    )}
-                  </strong>
+                  <td>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <a
+                        href={doc.data}
+                        download={doc.name}
+                        style={{
+                          textDecoration: "none",
+                        }}
+                      >
+                        <button className="secondary">
+                          Download
+                        </button>
+                      </a>
 
-                  <button
-                    className="delete"
-                    onClick={() =>
-                      deleteDocument(
-                        document.id
-                      )
-                    }
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                      <button
+                        className="delete"
+                        onClick={() => remove(doc.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </section>
+      </div>
     </div>
   );
 }
