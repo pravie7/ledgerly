@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { getTransactions } from "./services/api";
+import {
+  getTransactions,
+  getAccounts,
+  getSession,
+  logout as apiLogout,
+} from "./services/api";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
-
 import Login from "./pages/Login";
+
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Accounts from "./pages/Accounts";
@@ -23,7 +28,6 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 
 const STORAGE_KEY = "ledgerly_state";
-const SESSION_KEY = "ledgerly_session";
 
 const initialState = {
   transactions: [],
@@ -51,21 +55,8 @@ const initialState = {
     "Other",
   ],
   investments: {
-    assets: [
-      { name: "Bank Balance", value: 0 },
-      { name: "EPF", value: 0 },
-      { name: "PPF", value: 0 },
-      { name: "Mutual Funds", value: 0 },
-      { name: "Gold", value: 0 },
-      { name: "Land", value: 0 },
-      { name: "Car", value: 0 },
-    ],
-    liabilities: [
-      { name: "Home Loan", value: 0 },
-      { name: "Car Loan", value: 0 },
-      { name: "Credit Card", value: 0 },
-      { name: "Personal Loan", value: 0 },
-    ],
+    assets: [],
+    liabilities: [],
   },
   portfolio: {
     holdings: [],
@@ -76,312 +67,238 @@ const initialState = {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved
-      ? { ...initialState, ...JSON.parse(saved) }
-      : initialState;
+    return saved ? { ...initialState, ...JSON.parse(saved) } : initialState;
   } catch {
     return initialState;
   }
 }
 
-function loadSession() {
-  try {
-    const saved = localStorage.getItem(SESSION_KEY);
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    return null;
-  }
-}
-
 export default function App() {
-  const [session, setSession] = useState(loadSession);
+  const [session, setSession] = useState(getSession());
   const [page, setPage] = useState("Dashboard");
   const [state, setState] = useState(loadState);
 
   const updateState = (updates) =>
     setState((prev) => ({ ...prev, ...updates }));
 
-  // Cloud Sync
   useEffect(() => {
     if (!session) return;
 
     async function syncCloud() {
       try {
-        const data = await getTransactions();
+        const [transactions, accounts] = await Promise.all([
+          getTransactions(),
+          getAccounts(),
+        ]);
+
         setState((prev) => ({
           ...prev,
-          transactions: data,
+          transactions,
+          accounts,
         }));
-      } catch {
-        console.log("Cloud sync unavailable");
+      } catch (err) {
+        console.error("Cloud sync failed", err);
       }
     }
 
     syncCloud();
   }, [session]);
 
-  // Local Save
   useEffect(() => {
     if (session) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
   }, [state, session]);
 
-  const financialTransactions = useMemo(
+  const transactions = useMemo(
     () => state.transactions.filter((t) => !t.transfer),
     [state.transactions]
   );
 
   const income = useMemo(
     () =>
-      financialTransactions
+      transactions
         .filter((t) => t.type === "income")
         .reduce((s, t) => s + Number(t.amount), 0),
-    [financialTransactions]
+    [transactions]
   );
 
   const spending = useMemo(
     () =>
-      financialTransactions
+      transactions
         .filter((t) => t.type === "expense")
         .reduce((s, t) => s + Number(t.amount), 0),
-    [financialTransactions]
+    [transactions]
   );
 
   const savings = income - spending;
+  const savingsRate = income ? Math.round((savings / income) * 100) : 0;
 
-  const savingsRate =
-    income === 0 ? 0 : Math.round((savings / income) * 100);
-
-  const totalAssets = state.investments.assets.reduce(
+  const assets = state.investments.assets.reduce(
     (s, a) => s + Number(a.value || 0),
     0
   );
 
-  const totalLiabilities =
-    state.investments.liabilities.reduce(
-      (s, l) => s + Number(l.value || 0),
-      0
-    );
+  const liabilities = state.investments.liabilities.reduce(
+    (s, l) => s + Number(l.value || 0),
+    0
+  );
 
-  const netWorth = totalAssets - totalLiabilities;
+  const netWorth = assets - liabilities;
 
   function logout() {
-    localStorage.removeItem(SESSION_KEY);
+    apiLogout();
+    localStorage.removeItem(STORAGE_KEY);
     setSession(null);
-    setPage("Dashboard");
   }
 
   function resetAllData() {
-    const confirm = window.prompt(
-      'Type "DELETE ALL LEDGERLY DATA"'
-    );
-
-    if (confirm !== "DELETE ALL LEDGERLY DATA") return;
-
     localStorage.removeItem(STORAGE_KEY);
     setState(initialState);
-    setPage("Dashboard");
   }
 
-  // Show Login first
   if (!session) {
     return <Login onLogin={setSession} />;
   }
 
-  function renderPage() {
-    switch (page) {
-      case "Dashboard":
-        return (
-          <Dashboard
-            transactions={financialTransactions}
-            income={income}
-            spending={spending}
-            savings={savings}
-            savingsRate={savingsRate}
-            netWorth={netWorth}
-            netWorthConfigured={totalAssets > 0}
-            budgets={state.budgets}
-            goals={state.goals}
-          />
-        );
+  const pages = {
+    Dashboard: (
+      <Dashboard
+        transactions={transactions}
+        income={income}
+        spending={spending}
+        savings={savings}
+        savingsRate={savingsRate}
+        netWorth={netWorth}
+        budgets={state.budgets}
+        goals={state.goals}
+      />
+    ),
 
-      case "Transactions":
-        return (
-          <Transactions
-            transactions={financialTransactions}
-            setTransactions={(v) =>
-              updateState({ transactions: v })
-            }
-            categories={state.categories}
-            accounts={state.accounts}
-            tags={state.tags}
-          />
-        );
+    Transactions: (
+      <Transactions
+        transactions={transactions}
+        setTransactions={(v) => updateState({ transactions: v })}
+        categories={state.categories}
+        accounts={state.accounts}
+        tags={state.tags}
+      />
+    ),
 
-      case "Accounts":
-        return (
-          <Accounts
-            accounts={state.accounts}
-            setAccounts={(v) =>
-              updateState({ accounts: v })
-            }
-            transactions={state.transactions}
-          />
-        );
+    Accounts: (
+      <Accounts
+        accounts={state.accounts}
+        setAccounts={(v) => updateState({ accounts: v })}
+        transactions={state.transactions}
+      />
+    ),
 
-      case "Transfers":
-        return (
-          <Transfers
-            accounts={state.accounts}
-            transactions={state.transactions}
-            setTransactions={(v) =>
-              updateState({ transactions: v })
-            }
-          />
-        );
+    Transfers: (
+      <Transfers
+        accounts={state.accounts}
+        transactions={state.transactions}
+        setTransactions={(v) => updateState({ transactions: v })}
+      />
+    ),
 
-      case "Recurring":
-        return (
-          <Recurring
-            recurring={state.recurring}
-            setRecurring={(v) =>
-              updateState({ recurring: v })
-            }
-            transactions={state.transactions}
-            setTransactions={(v) =>
-              updateState({ transactions: v })
-            }
-            categories={state.categories}
-            accounts={state.accounts}
-          />
-        );
+    Recurring: (
+      <Recurring
+        recurring={state.recurring}
+        setRecurring={(v) => updateState({ recurring: v })}
+        transactions={state.transactions}
+        setTransactions={(v) => updateState({ transactions: v })}
+        categories={state.categories}
+        accounts={state.accounts}
+      />
+    ),
 
-      case "Subscriptions":
-        return (
-          <Subscriptions
-            subscriptions={state.subscriptions}
-            setSubscriptions={(v) =>
-              updateState({ subscriptions: v })
-            }
-            categories={state.categories}
-            accounts={state.accounts}
-          />
-        );
+    Subscriptions: (
+      <Subscriptions
+        subscriptions={state.subscriptions}
+        setSubscriptions={(v) => updateState({ subscriptions: v })}
+        categories={state.categories}
+        accounts={state.accounts}
+      />
+    ),
 
-      case "Budgets":
-        return (
-          <Budgets
-            budgets={state.budgets}
-            setBudgets={(v) =>
-              updateState({ budgets: v })
-            }
-            transactions={financialTransactions}
-            categories={state.categories}
-          />
-        );
+    Budgets: (
+      <Budgets
+        budgets={state.budgets}
+        setBudgets={(v) => updateState({ budgets: v })}
+        transactions={transactions}
+        categories={state.categories}
+      />
+    ),
 
-      case "Goals":
-        return (
-          <Goals
-            goals={state.goals}
-            setGoals={(v) =>
-              updateState({ goals: v })
-            }
-          />
-        );
+    Goals: (
+      <Goals
+        goals={state.goals}
+        setGoals={(v) => updateState({ goals: v })}
+      />
+    ),
 
-      case "Investments":
-        return (
-          <Investments
-            investments={state.investments}
-            setInvestments={(v) =>
-              updateState({ investments: v })
-            }
-          />
-        );
+    Investments: (
+      <Investments
+        investments={state.investments}
+        setInvestments={(v) => updateState({ investments: v })}
+      />
+    ),
 
-      case "Portfolio":
-        return (
-          <Portfolio
-            portfolio={state.portfolio}
-            setPortfolio={(v) =>
-              updateState({ portfolio: v })
-            }
-          />
-        );
+    Portfolio: (
+      <Portfolio
+        portfolio={state.portfolio}
+        setPortfolio={(v) => updateState({ portfolio: v })}
+      />
+    ),
 
-      case "Retirement":
-        return <Retirement />;
+    Retirement: <Retirement />,
 
-      case "Reports":
-        return (
-          <Reports transactions={financialTransactions} />
-        );
+    Reports: <Reports transactions={transactions} />,
 
-      case "Documents":
-        return (
-          <Documents
-            documents={state.documents}
-            setDocuments={(v) =>
-              updateState({ documents: v })
-            }
-          />
-        );
+    Documents: (
+      <Documents
+        documents={state.documents}
+        setDocuments={(v) => updateState({ documents: v })}
+      />
+    ),
 
-      case "Rules":
-        return (
-          <Rules
-            rules={state.rules}
-            setRules={(v) =>
-              updateState({ rules: v })
-            }
-            categories={state.categories}
-          />
-        );
+    Rules: (
+      <Rules
+        rules={state.rules}
+        setRules={(v) => updateState({ rules: v })}
+        categories={state.categories}
+      />
+    ),
 
-      case "Notifications":
-        return (
-          <Notifications
-            transactions={state.transactions}
-            budgets={state.budgets}
-            recurring={state.recurring}
-            accounts={state.accounts}
-          />
-        );
+    Notifications: (
+      <Notifications
+        transactions={state.transactions}
+        budgets={state.budgets}
+        recurring={state.recurring}
+        accounts={state.accounts}
+      />
+    ),
 
-      case "Settings":
-        return (
-          <Settings
-            assets={totalAssets}
-            liabilities={totalLiabilities}
-            netWorthConfigured={totalAssets > 0}
-            categories={state.categories}
-            accounts={state.accounts}
-            tags={state.tags}
-            setSettings={updateState}
-            resetAllData={resetAllData}
-          />
-        );
-
-      default:
-        return <Dashboard />;
-    }
-  }
+    Settings: (
+      <Settings
+        categories={state.categories}
+        accounts={state.accounts}
+        tags={state.tags}
+        setSettings={updateState}
+        resetAllData={resetAllData}
+      />
+    ),
+  };
 
   return (
     <div className="appShell">
       <Sidebar page={page} setPage={setPage} />
 
       <div className="mainArea">
-        <Header
-          page={page}
-          user={session}
-          onLogout={logout}
-        />
+        <Header page={page} user={session} onLogout={logout} />
 
         <main className="pageContent">
-          {renderPage()}
+          {pages[page] || pages.Dashboard}
         </main>
       </div>
     </div>
