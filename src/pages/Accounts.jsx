@@ -1,162 +1,199 @@
 import { useMemo, useState } from "react";
+import {
+  addAccount,
+  getAccounts,
+} from "../services/api";
 
 export default function Accounts({
-  accounts = [],
+  accounts,
   setAccounts,
-  transactions = [],
+  transactions,
 }) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState("Savings");
-  const [opening, setOpening] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    type: "Bank",
+    opening: "",
+  });
 
-  const liveAccounts = useMemo(() => {
-    return accounts.map((acc) => {
-      const movement = transactions
-        .filter((t) => t.account === acc.name)
-        .reduce((sum, tx) => {
-          return tx.type === "income"
-            ? sum + Number(tx.amount)
-            : sum - Number(tx.amount);
-        }, 0);
+  const [saving, setSaving] = useState(false);
 
-      return {
-        ...acc,
-        liveBalance: Number(acc.opening) + movement,
-      };
+  async function createAccount() {
+    if (!form.name.trim()) return;
+
+    setSaving(true);
+
+    try {
+      await addAccount({
+        name: form.name,
+        type: form.type,
+        opening: Number(form.opening || 0),
+      });
+
+      const latest = await getAccounts();
+      setAccounts(latest);
+
+      setForm({
+        name: "",
+        type: "Bank",
+        opening: "",
+      });
+    } catch (err) {
+      alert(err.message);
+    }
+
+    setSaving(false);
+  }
+
+  const balances = useMemo(() => {
+    const map = {};
+
+    accounts.forEach((acc) => {
+      map[acc.name] = Number(acc.opening || 0);
     });
+
+    transactions.forEach((tx) => {
+      const account = tx.account || "Cash";
+
+      if (map[account] === undefined) {
+        map[account] = 0;
+      }
+
+      if (tx.type === "income") {
+        map[account] += Number(tx.amount);
+      } else {
+        map[account] -= Number(tx.amount);
+      }
+    });
+
+    return map;
   }, [accounts, transactions]);
 
-  const totalBalance = liveAccounts.reduce(
-    (s, a) => s + a.liveBalance,
+  const totalBalance = Object.values(balances).reduce(
+    (sum, value) => sum + Number(value),
     0
   );
-
-  function addAccount() {
-    if (!name.trim() || opening === "") return;
-
-    setAccounts([
-      ...accounts,
-      {
-        id: crypto.randomUUID(),
-        name: name.trim(),
-        type,
-        opening: Number(opening),
-      },
-    ]);
-
-    setName("");
-    setType("Savings");
-    setOpening("");
-  }
-
-  function remove(id) {
-    setAccounts(accounts.filter((a) => a.id !== id));
-  }
 
   return (
     <div className="dashboard">
       <div className="cards">
         <div className="card">
-          <small>Accounts</small>
+          <small>Total Accounts</small>
           <h2>{accounts.length}</h2>
         </div>
 
         <div className="card">
-          <small>Live Balance</small>
-          <h2 style={{ color: "#16A34A" }}>
-            ₹{totalBalance.toLocaleString()}
-          </h2>
-        </div>
-      </div>
-
-      <div className="grid2">
-        <div className="panel">
-          <h2>Add Account</h2>
-
-          <input
-            placeholder="HDFC Salary"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            <option>Savings</option>
-            <option>Current</option>
-            <option>Cash</option>
-            <option>Credit Card</option>
-          </select>
-
-          <input
-            type="number"
-            placeholder="Opening Balance"
-            value={opening}
-            onChange={(e) => setOpening(e.target.value)}
-          />
-
-          <button
-            onClick={addAccount}
-            style={{ marginTop: 16 }}
-          >
-            Add Account
-          </button>
-        </div>
-
-        <div className="panel">
-          <h2>Live Accounts</h2>
-
-          {liveAccounts.map((acc) => (
-            <div
-              key={acc.id}
-              className="budgetRow"
-              style={{ marginBottom: 16 }}
-            >
-              <div>
-                <strong>{acc.name}</strong>
-                <div className="txMeta">{acc.type}</div>
-              </div>
-
-              <strong>
-                ₹{acc.liveBalance.toLocaleString()}
-              </strong>
-            </div>
-          ))}
+          <small>Total Balance</small>
+          <h2>₹{totalBalance.toLocaleString()}</h2>
         </div>
       </div>
 
       <div className="panel">
-        <h2>Manage</h2>
+        <h2>Create Account</h2>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Account</th>
-              <th>Opening</th>
-              <th>Live</th>
-              <th></th>
-            </tr>
-          </thead>
+        <div className="row">
+          <input
+            placeholder="Account Name"
+            value={form.name}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                name: e.target.value,
+              })
+            }
+          />
 
-          <tbody>
-            {liveAccounts.map((acc) => (
-              <tr key={acc.id}>
-                <td>{acc.name}</td>
-                <td>₹{acc.opening.toLocaleString()}</td>
-                <td>₹{acc.liveBalance.toLocaleString()}</td>
-                <td>
-                  <button
-                    className="delete"
-                    onClick={() => remove(acc.id)}
-                  >
-                    Delete
-                  </button>
-                </td>
+          <select
+            value={form.type}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                type: e.target.value,
+              })
+            }
+          >
+            <option>Bank</option>
+            <option>Cash</option>
+            <option>Wallet</option>
+            <option>Credit Card</option>
+            <option>UPI</option>
+          </select>
+        </div>
+
+        <div className="row">
+          <input
+            type="number"
+            placeholder="Opening Balance"
+            value={form.opening}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                opening: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <button
+          onClick={createAccount}
+          disabled={saving}
+        >
+          {saving ? "Creating..." : "Create Account"}
+        </button>
+      </div>
+
+      <div className="panel">
+        <h2>My Accounts</h2>
+
+        {accounts.length === 0 ? (
+          <p style={{ color: "#64748b" }}>
+            No accounts created yet.
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Type</th>
+                <th>Opening</th>
+                <th>Current Balance</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {accounts.map((acc) => (
+                <tr key={acc.id}>
+                  <td>
+                    <strong>{acc.name}</strong>
+                  </td>
+
+                  <td>{acc.type}</td>
+
+                  <td>
+                    ₹
+                    {Number(
+                      acc.opening || 0
+                    ).toLocaleString()}
+                  </td>
+
+                  <td
+                    style={{
+                      color:
+                        balances[acc.name] >= 0
+                          ? "#16a34a"
+                          : "#dc2626",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ₹
+                    {Number(
+                      balances[acc.name] || 0
+                    ).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
