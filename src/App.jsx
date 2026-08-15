@@ -14,6 +14,7 @@ import Budgets from "./pages/Budgets";
 import Goals from "./pages/Goals";
 import Investments from "./pages/Investments";
 import Portfolio from "./pages/Portfolio";
+import Retirement from "./pages/Retirement";
 import Reports from "./pages/Reports";
 import Documents from "./pages/Documents";
 import Rules from "./pages/Rules";
@@ -88,29 +89,32 @@ export default function App() {
   const [page, setPage] = useState("Dashboard");
   const [state, setState] = useState(loadState);
 
-  const updateState = (obj) =>
-    setState((prev) => ({ ...prev, ...obj }));
+  const updateState = (updates) =>
+    setState((prev) => ({ ...prev, ...updates }));
 
-  // Cloud Sync
+  // Cloud Sync (D1)
   useEffect(() => {
-    async function sync() {
+    async function syncCloud() {
       try {
         const data = await getTransactions();
         setState((prev) => ({
           ...prev,
           transactions: data,
         }));
-      } catch {}
+      } catch {
+        console.log("Cloud sync unavailable");
+      }
     }
 
-    sync();
+    syncCloud();
   }, []);
 
-  // Local Save
+  // Local Storage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  // Ignore internal transfers for financial reports
   const financialTransactions = useMemo(
     () => state.transactions.filter((t) => !t.transfer),
     [state.transactions]
@@ -151,11 +155,11 @@ export default function App() {
   const netWorth = totalAssets - totalLiabilities;
 
   function resetAllData() {
-    const ok = window.prompt(
+    const confirm = window.prompt(
       'Type "DELETE ALL LEDGERLY DATA"'
     );
 
-    if (ok !== "DELETE ALL LEDGERLY DATA") return;
+    if (confirm !== "DELETE ALL LEDGERLY DATA") return;
 
     localStorage.removeItem(STORAGE_KEY);
     setState(initialState);
@@ -287,6 +291,9 @@ export default function App() {
             }
           />
         );
+
+      case "Retirement":
+        return <Retirement />;
 
       case "Reports":
         return (
