@@ -1,20 +1,38 @@
-const menuItems = [
-  { name: "Dashboard", icon: "📊" },
-  { name: "Transactions", icon: "💳" },
-  { name: "Accounts", icon: "🏦" },
-  { name: "Transfers", icon: "🔄" },
-  { name: "Recurring", icon: "🔁" },
-  { name: "Subscriptions", icon: "📅" },
-  { name: "Budgets", icon: "🎯" },
-  { name: "Goals", icon: "💰" },
-  { name: "Investments", icon: "📈" },
-  { name: "Portfolio", icon: "💼" },
-  { name: "Retirement", icon: "🏖️" },
-  { name: "Reports", icon: "📑" },
-  { name: "Documents", icon: "📄" },
-  { name: "Rules", icon: "⚙️" },
-  { name: "Notifications", icon: "🔔" },
-  { name: "Settings", icon: "🛠️" },
+import {
+  LayoutDashboard,
+  Receipt,
+  Wallet,
+  ArrowLeftRight,
+  Repeat,
+  CreditCard,
+  Target,
+  PiggyBank,
+  TrendingUp,
+  Landmark,
+  BarChart3,
+  FileText,
+  Bot,
+  Bell,
+  Settings,
+} from "lucide-react";
+
+const menu = [
+  { name: "Dashboard", icon: LayoutDashboard },
+  { name: "Transactions", icon: Receipt },
+  { name: "Accounts", icon: Wallet },
+  { name: "Transfers", icon: ArrowLeftRight },
+  { name: "Recurring", icon: Repeat },
+  { name: "Subscriptions", icon: CreditCard },
+  { name: "Budgets", icon: Target },
+  { name: "Goals", icon: PiggyBank },
+  { name: "Investments", icon: TrendingUp },
+  { name: "Portfolio", icon: Landmark },
+  { name: "Retirement", icon: PiggyBank },
+  { name: "Reports", icon: BarChart3 },
+  { name: "Documents", icon: FileText },
+  { name: "Rules", icon: Bot },
+  { name: "Notifications", icon: Bell },
+  { name: "Settings", icon: Settings },
 ];
 
 export default function Sidebar({ page, setPage }) {
@@ -26,23 +44,26 @@ export default function Sidebar({ page, setPage }) {
       </div>
 
       <nav className="menu">
-        {menuItems.map((item) => (
-          <button
-            key={item.name}
-            className={`menuItem ${
-              page === item.name ? "active" : ""
-            }`}
-            onClick={() => setPage(item.name)}
-          >
-            <span className="icon">{item.icon}</span>
-            <span>{item.name}</span>
-          </button>
-        ))}
+        {menu.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.name}
+              className={`menuItem ${
+                page === item.name ? "active" : ""
+              }`}
+              onClick={() => setPage(item.name)}
+            >
+              <Icon size={20} />
+              <span>{item.name}</span>
+            </button>
+          );
+        })}
       </nav>
 
       <div className="sidebarFooter">
-        <div className="version">Ledgerly v7.2</div>
-        <small>Wealth & Retirement Edition</small>
+        <div className="version">Ledgerly v8.1</div>
         <small>Cloud Sync Enabled</small>
       </div>
     </aside>
