@@ -1,147 +1,209 @@
-const cors = {
-  "Access-Control-Allow-Origin":
-    "https://ledgerly.praveenmdu127.workers.dev",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // CORS
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: cors });
-    }
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods":
+        "GET,POST,PUT,DELETE,OPTIONS",
+    };
 
-    // Health Check
+    if (request.method === "OPTIONS")
+      return new Response("", {
+        headers: cors,
+      });
+
+    // ---------- HEALTH ----------
     if (url.pathname === "/api/health") {
-      return Response.json(
-        {
-          app: "Ledgerly",
-          status: "online",
-        },
-        { headers: cors }
-      );
+      return json({
+        status: "ok",
+        version: "8.1",
+      });
     }
 
-    // Get Transactions
+    // ---------- LOGIN ----------
     if (
-      request.method === "GET" &&
-      url.pathname === "/api/transactions"
+      url.pathname === "/api/login" &&
+      request.method === "POST"
     ) {
-      const { results } = await env.DB.prepare(
-        `SELECT * FROM transactions ORDER BY date DESC`
-      ).all();
+      const body = await request.json();
 
-      return Response.json(results, { headers: cors });
-    }
-
-    // Add Single Transaction
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/transactions"
-    ) {
-      const tx = await request.json();
-
-      const duplicate = await env.DB.prepare(
-        `SELECT id FROM transactions
-         WHERE merchant=? AND amount=? AND date=?
-         LIMIT 1`
+      const user = await env.DB.prepare(
+        `SELECT * FROM users
+         WHERE email=?1 AND pin=?2`
       )
-        .bind(tx.merchant, tx.amount, tx.date)
+        .bind(body.email, body.pin)
         .first();
 
-      if (duplicate) {
-        return Response.json(
-          { success: false, duplicate: true },
-          { headers: cors }
+      if (!user) {
+        return json(
+          { error: "Invalid credentials" },
+          401
         );
       }
 
-      await env.DB.prepare(`
-        INSERT INTO transactions
-        (id, merchant, amount, type, category, account, note, date, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-        .bind(
-          tx.id,
-          tx.merchant,
-          tx.amount,
-          tx.type,
-          tx.category,
-          tx.account,
-          tx.note,
-          tx.date,
-          new Date().toISOString()
-        )
-        .run();
-
-      return Response.json(
-        { success: true },
-        { headers: cors }
-      );
+      return json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      });
     }
 
-    // Bulk CSV Import
+    // ---------- REGISTER ----------
     if (
-      request.method === "POST" &&
-      url.pathname === "/api/import"
+      url.pathname === "/api/register" &&
+      request.method === "POST"
     ) {
-      const rows = await request.json();
+      const body = await request.json();
 
-      let imported = 0;
-      let duplicates = 0;
+      const id = crypto.randomUUID();
 
-      for (const tx of rows) {
-        const exists = await env.DB.prepare(
-          `SELECT id FROM transactions
-           WHERE merchant=? AND amount=? AND date=?
-           LIMIT 1`
+      try {
+        await env.DB.prepare(
+          `INSERT INTO users
+          (id,name,email,pin)
+          VALUES(?1,?2,?3,?4)`
         )
-          .bind(tx.merchant, tx.amount, tx.date)
-          .first();
-
-        if (exists) {
-          duplicates++;
-          continue;
-        }
-
-        await env.DB.prepare(`
-          INSERT INTO transactions
-          (id, merchant, amount, type, category, account, note, date, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `)
           .bind(
-            tx.id,
-            tx.merchant,
-            tx.amount,
-            tx.type,
-            tx.category,
-            tx.account,
-            tx.note,
-            tx.date,
-            new Date().toISOString()
+            id,
+            body.name,
+            body.email,
+            body.pin
           )
           .run();
 
-        imported++;
+        return json({
+          id,
+          name: body.name,
+          email: body.email,
+        });
+      } catch {
+        return json(
+          { error: "Email already exists" },
+          400
+        );
       }
+    }
 
-      return Response.json(
-        {
-          success: true,
-          imported,
-          duplicates,
-          total: rows.length,
-        },
-        { headers: cors }
-      );
+    // ---------- GET TRANSACTIONS ----------
+    if (
+      url.pathname === "/api/transactions" &&
+      request.method === "GET"
+    ) {
+      const userId =
+        request.headers.get("x-user-id");
+
+      const result = await env.DB.prepare(
+        `SELECT *
+         FROM transactions
+         WHERE user_id=?1
+         ORDER BY date DESC`
+      )
+        .bind(userId)
+        .all();
+
+      return json(result.results);
+    }
+
+    // ---------- ADD TRANSACTION ----------
+    if (
+      url.pathname === "/api/transactions" &&
+      request.method === "POST"
+    ) {
+      const body = await request.json();
+
+      const id = crypto.randomUUID();
+
+      await env.DB.prepare(
+        `INSERT INTO transactions
+        (id,user_id,merchant,amount,type,
+         category,account,note,date,transfer,recurring_id)
+        VALUES(?1,?2,?3,?4,?5,
+               ?6,?7,?8,?9,?10,?11)`
+      )
+        .bind(
+          id,
+          body.user_id,
+          body.merchant,
+          body.amount,
+          body.type,
+          body.category,
+          body.account,
+          body.note,
+          body.date,
+          body.transfer ? 1 : 0,
+          body.recurring_id || null
+        )
+        .run();
+
+      return json({
+        success: true,
+        id,
+      });
+    }
+
+    // ---------- GET ACCOUNTS ----------
+    if (
+      url.pathname === "/api/accounts" &&
+      request.method === "GET"
+    ) {
+      const userId =
+        request.headers.get("x-user-id");
+
+      const result = await env.DB.prepare(
+        `SELECT *
+         FROM accounts
+         WHERE user_id=?1`
+      )
+        .bind(userId)
+        .all();
+
+      return json(result.results);
+    }
+
+    // ---------- ADD ACCOUNT ----------
+    if (
+      url.pathname === "/api/accounts" &&
+      request.method === "POST"
+    ) {
+      const body = await request.json();
+
+      const id = crypto.randomUUID();
+
+      await env.DB.prepare(
+        `INSERT INTO accounts
+        (id,user_id,name,type,opening)
+        VALUES(?1,?2,?3,?4,?5)`
+      )
+        .bind(
+          id,
+          body.user_id,
+          body.name,
+          body.type,
+          body.opening
+        )
+        .run();
+
+      return json({
+        success: true,
+        id,
+      });
     }
 
     return new Response("Not Found", {
       status: 404,
       headers: cors,
     });
+
+    function json(data, status = 200) {
+      return new Response(JSON.stringify(data), {
+        status,
+        headers: {
+          "Content-Type": "application/json",
+          ...cors,
+        },
+      });
+    }
   },
 };
