@@ -9,6 +9,7 @@ const menuItems = [
   { name: "Goals", icon: "💰" },
   { name: "Investments", icon: "📈" },
   { name: "Portfolio", icon: "💼" },
+  { name: "Retirement", icon: "🏖️" },
   { name: "Reports", icon: "📑" },
   { name: "Documents", icon: "📄" },
   { name: "Rules", icon: "⚙️" },
@@ -40,8 +41,8 @@ export default function Sidebar({ page, setPage }) {
       </nav>
 
       <div className="sidebarFooter">
-        <div className="version">Ledgerly v7.0</div>
-        <small>Wealth Management Edition</small>
+        <div className="version">Ledgerly v7.2</div>
+        <small>Wealth & Retirement Edition</small>
         <small>Cloud Sync Enabled</small>
       </div>
     </aside>
