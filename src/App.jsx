@@ -4,6 +4,7 @@ import { getTransactions } from "./services/api";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Accounts from "./pages/Accounts";
@@ -22,6 +23,7 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 
 const STORAGE_KEY = "ledgerly_state";
+const SESSION_KEY = "ledgerly_session";
 
 const initialState = {
   transactions: [],
@@ -33,7 +35,6 @@ const initialState = {
   documents: [],
   rules: [],
   tags: [],
-
   categories: [
     "Housing",
     "Groceries",
@@ -49,7 +50,6 @@ const initialState = {
     "Transfer",
     "Other",
   ],
-
   investments: {
     assets: [
       { name: "Bank Balance", value: 0 },
@@ -67,7 +67,6 @@ const initialState = {
       { name: "Personal Loan", value: 0 },
     ],
   },
-
   portfolio: {
     holdings: [],
     fixedDeposits: [],
@@ -85,15 +84,27 @@ function loadState() {
   }
 }
 
+function loadSession() {
+  try {
+    const saved = localStorage.getItem(SESSION_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
+  const [session, setSession] = useState(loadSession);
   const [page, setPage] = useState("Dashboard");
   const [state, setState] = useState(loadState);
 
   const updateState = (updates) =>
     setState((prev) => ({ ...prev, ...updates }));
 
-  // Cloud Sync (D1)
+  // Cloud Sync
   useEffect(() => {
+    if (!session) return;
+
     async function syncCloud() {
       try {
         const data = await getTransactions();
@@ -107,14 +118,15 @@ export default function App() {
     }
 
     syncCloud();
-  }, []);
+  }, [session]);
 
-  // Local Storage
+  // Local Save
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    if (session) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+  }, [state, session]);
 
-  // Ignore internal transfers for financial reports
   const financialTransactions = useMemo(
     () => state.transactions.filter((t) => !t.transfer),
     [state.transactions]
@@ -154,6 +166,12 @@ export default function App() {
 
   const netWorth = totalAssets - totalLiabilities;
 
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    setSession(null);
+    setPage("Dashboard");
+  }
+
   function resetAllData() {
     const confirm = window.prompt(
       'Type "DELETE ALL LEDGERLY DATA"'
@@ -164,6 +182,11 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEY);
     setState(initialState);
     setPage("Dashboard");
+  }
+
+  // Show Login first
+  if (!session) {
+    return <Login onLogin={setSession} />;
   }
 
   function renderPage() {
@@ -187,15 +210,9 @@ export default function App() {
         return (
           <Transactions
             transactions={financialTransactions}
-            setTransactions={(value) => {
-              const transfers = state.transactions.filter(
-                (t) => t.transfer
-              );
-
-              updateState({
-                transactions: [...value, ...transfers],
-              });
-            }}
+            setTransactions={(v) =>
+              updateState({ transactions: v })
+            }
             categories={state.categories}
             accounts={state.accounts}
             tags={state.tags}
@@ -268,7 +285,9 @@ export default function App() {
         return (
           <Goals
             goals={state.goals}
-            setGoals={(v) => updateState({ goals: v })}
+            setGoals={(v) =>
+              updateState({ goals: v })
+            }
           />
         );
 
@@ -314,7 +333,9 @@ export default function App() {
         return (
           <Rules
             rules={state.rules}
-            setRules={(v) => updateState({ rules: v })}
+            setRules={(v) =>
+              updateState({ rules: v })
+            }
             categories={state.categories}
           />
         );
@@ -353,7 +374,11 @@ export default function App() {
       <Sidebar page={page} setPage={setPage} />
 
       <div className="mainArea">
-        <Header page={page} />
+        <Header
+          page={page}
+          user={session}
+          onLogout={logout}
+        />
 
         <main className="pageContent">
           {renderPage()}
