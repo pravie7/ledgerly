@@ -1,4 +1,9 @@
 import { useMemo } from "react";
+import {
+  Cloud,
+  CalendarDays,
+  LogOut,
+} from "lucide-react";
 
 export default function Header({
   page,
@@ -14,25 +19,6 @@ export default function Header({
     });
   }, []);
 
-  const pageInfo = {
-    Dashboard: "Financial overview & analytics",
-    Transactions: "Track income and expenses",
-    Accounts: "Manage bank accounts",
-    Transfers: "Move money between accounts",
-    Recurring: "Automate recurring bills",
-    Subscriptions: "Monthly subscription tracker",
-    Budgets: "Control your spending",
-    Goals: "Track financial goals",
-    Investments: "Net worth & assets",
-    Portfolio: "Stocks, SIPs & Fixed Deposits",
-    Retirement: "FIRE & retirement planning",
-    Reports: "Financial reports & exports",
-    Documents: "Import bank statements",
-    Rules: "Auto categorization engine",
-    Notifications: "Alerts & reminders",
-    Settings: "Ledgerly preferences",
-  };
-
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
 
@@ -40,6 +26,25 @@ export default function Header({
     if (hour < 17) return "Good Afternoon";
     return "Good Evening";
   }, []);
+
+  const subtitle = {
+    Dashboard: "Financial overview & analytics",
+    Transactions: "Track income and expenses",
+    Accounts: "Manage your bank accounts",
+    Transfers: "Move money between accounts",
+    Recurring: "Automate recurring payments",
+    Subscriptions: "Monitor monthly subscriptions",
+    Budgets: "Control monthly spending",
+    Goals: "Track savings goals",
+    Investments: "Assets & liabilities",
+    Portfolio: "Mutual funds, stocks & FD",
+    Retirement: "FIRE & retirement planning",
+    Reports: "Financial insights & exports",
+    Documents: "CSV import & statements",
+    Rules: "Auto categorisation engine",
+    Notifications: "Reminders & alerts",
+    Settings: "Ledgerly preferences",
+  };
 
   return (
     <header className="header">
@@ -51,12 +56,12 @@ export default function Header({
 
         <h1>{page}</h1>
 
-        <p>{pageInfo[page]}</p>
+        <p>{subtitle[page]}</p>
       </div>
 
       <div className="headerRight">
         <div className="statusCard">
-          <div className="statusDot" />
+          <Cloud size={18} color="#16a34a" />
 
           <div>
             <strong>Cloud Sync</strong>
@@ -65,11 +70,11 @@ export default function Header({
         </div>
 
         <div className="dateCard">
-          <div className="calendar">📅</div>
+          <CalendarDays size={18} />
 
           <div>
             <strong>{today}</strong>
-            <small>Ledgerly v8.0</small>
+            <small>Ledgerly v8.1</small>
           </div>
         </div>
 
@@ -88,8 +93,9 @@ export default function Header({
           <button
             className="logoutBtn"
             onClick={onLogout}
+            title="Logout"
           >
-            Logout
+            <LogOut size={16} />
           </button>
         </div>
       </div>
