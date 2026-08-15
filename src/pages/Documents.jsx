@@ -1,19 +1,21 @@
-import { useState } from "react";
-import { importTransactions } from "../services/api";
+import { useMemo, useState } from "react";
+import {
+  importTransactions,
+  getTransactions,
+} from "../services/api";
 
 export default function Documents({
-  documents = [],
-  setDocuments = () => {},
+  documents,
+  setDocuments,
+  transactions,
+  setTransactions,
 }) {
-  const [rows, setRows] = useState([]);
-  const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [preview, setPreview] = useState([]);
   const [loading, setLoading] = useState(false);
 
   function parseCSV(text) {
-    const lines = text
-      .trim()
-      .split(/\r?\n/)
-      .filter(Boolean);
+    const lines = text.trim().split(/\r?\n/);
 
     if (lines.length < 2) return [];
 
@@ -21,136 +23,196 @@ export default function Documents({
       .split(",")
       .map((h) => h.trim().toLowerCase());
 
-    return lines.slice(1).map((line, index) => {
-      const values = line.split(",");
+    return lines.slice(1).map((line) => {
+      const cols = line.split(",");
 
-      const obj = {};
+      const row = {};
+
       headers.forEach((h, i) => {
-        obj[h] = (values[i] || "").trim();
+        row[h] = (cols[i] || "").trim();
       });
 
-      const debit = Number(obj.debit || 0);
-      const credit = Number(obj.credit || 0);
-
       return {
-        id: crypto.randomUUID(),
         merchant:
-          obj.description ||
-          obj.narration ||
-          obj.merchant ||
-          "Unknown",
-        amount: credit > 0 ? credit : debit,
-        type: credit > 0 ? "income" : "expense",
-        category: "Needs review",
-        account: "HDFC",
-        note: "",
+          row.merchant ||
+          row.description ||
+          "Transaction",
+
+        amount: Number(row.amount || 0),
+
+        type:
+          (row.type || "expense").toLowerCase(),
+
+        category: row.category || "Other",
+
+        account: row.account || "Cash",
+
+        note: row.note || "",
+
         date:
-          obj.date ||
-          obj["txn date"] ||
+          row.date ||
           new Date().toISOString().slice(0, 10),
       };
     });
   }
 
-  function handleFile(file) {
+  async function chooseFile(e) {
+    const file = e.target.files?.[0];
+
     if (!file) return;
 
-    const reader = new FileReader();
+    const text = await file.text();
 
-    reader.onload = (e) => {
-      const parsed = parseCSV(e.target.result);
+    const rows = parseCSV(text);
 
-      setRows(parsed);
-      setFileName(file.name);
-    };
+    setSelectedFile(file);
 
-    reader.readAsText(file);
+    setPreview(rows);
   }
 
-  async function uploadToCloud() {
+  async function handleImport() {
+    if (preview.length === 0) return;
+
+    setLoading(true);
+
     try {
-      setLoading(true);
+      await importTransactions(preview);
 
-      const result = await importTransactions(rows);
+      const latest = await getTransactions();
 
-      const history = {
-        id: Date.now(),
-        name: fileName,
-        uploadedAt: new Date().toLocaleString(),
-        count: result.imported,
-      };
+      setTransactions(latest);
 
-      setDocuments([...documents, history]);
+      setDocuments([
+        {
+          id: crypto.randomUUID(),
+          name: selectedFile.name,
+          imported: preview.length,
+          created_at: new Date().toISOString(),
+        },
+        ...documents,
+      ]);
+
+      setPreview([]);
+      setSelectedFile(null);
 
       alert(
-        `Imported: ${result.imported}\nDuplicates: ${result.duplicates}`
+        `${latest.length} total transactions available`
       );
-
-      setRows([]);
-      setFileName("");
     } catch (err) {
-      alert("Import failed.");
-    } finally {
-      setLoading(false);
+      alert(err.message);
     }
+
+    setLoading(false);
   }
+
+  const totalAmount = useMemo(
+    () =>
+      preview.reduce(
+        (s, t) => s + Number(t.amount),
+        0
+      ),
+    [preview]
+  );
 
   return (
     <div className="dashboard">
       <div className="panel">
-        <h2>CSV Bank Statement Import</h2>
+        <h2>Import Bank Statement</h2>
 
-        <p style={{ color: "#64748B", marginBottom: 18 }}>
-          Supports HDFC, ICICI, SBI and Axis CSV statements.
+        <p style={{ color: "#64748b" }}>
+          Upload a CSV file containing bank
+          transactions.
         </p>
+
+        <br />
 
         <input
           type="file"
           accept=".csv"
-          onChange={(e) => handleFile(e.target.files[0])}
+          onChange={chooseFile}
         />
 
-        {fileName && (
-          <div style={{ marginTop: 18 }}>
-            <strong>{fileName}</strong>
-            <p>{rows.length} transactions detected</p>
-          </div>
-        )}
+        {selectedFile && (
+          <>
+            <br />
+            <br />
 
-        {rows.length > 0 && (
-          <button
-            onClick={uploadToCloud}
-            disabled={loading}
-            style={{ marginTop: 16 }}
-          >
-            {loading ? "Uploading..." : "Import to Cloud"}
-          </button>
+            <div
+              style={{
+                padding: 12,
+                background: "#f8fafc",
+                borderRadius: 10,
+              }}
+            >
+              <strong>{selectedFile.name}</strong>
+
+              <div
+                style={{
+                  color: "#64748b",
+                  marginTop: 6,
+                }}
+              >
+                {preview.length} transactions • ₹
+                {totalAmount.toLocaleString()}
+              </div>
+            </div>
+
+            <br />
+
+            <button
+              onClick={handleImport}
+              disabled={loading}
+            >
+              {loading
+                ? "Importing..."
+                : `Import ${preview.length} Transactions`}
+            </button>
+          </>
         )}
       </div>
 
       <div className="panel">
         <h2>Preview</h2>
 
-        {rows.length === 0 ? (
-          <p>No CSV selected.</p>
+        {preview.length === 0 ? (
+          <p
+            style={{
+              color: "#64748b",
+            }}
+          >
+            No CSV selected.
+          </p>
         ) : (
           <table>
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Merchant</th>
+                <th>Category</th>
                 <th>Amount</th>
-                <th>Type</th>
               </tr>
             </thead>
 
             <tbody>
-              {rows.slice(0, 15).map((r) => (
-                <tr key={r.id}>
-                  <td>{r.date}</td>
-                  <td>{r.merchant}</td>
-                  <td>₹{Number(r.amount).toLocaleString()}</td>
-                  <td>{r.type}</td>
+              {preview.map((t, i) => (
+                <tr key={i}>
+                  <td>{t.date}</td>
+                  <td>{t.merchant}</td>
+                  <td>{t.category}</td>
+                  <td
+                    style={{
+                      color:
+                        t.type === "income"
+                          ? "#16a34a"
+                          : "#dc2626",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t.type === "income" ? "+" : "-"}₹
+                    {Number(
+                      t.amount
+                    ).toLocaleString()}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -162,24 +224,57 @@ export default function Documents({
         <h2>Import History</h2>
 
         {documents.length === 0 ? (
-          <p>No imported files.</p>
+          <p
+            style={{
+              color: "#64748b",
+            }}
+          >
+            No imports yet.
+          </p>
         ) : (
-          documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="budgetRow"
-              style={{ marginBottom: 14 }}
-            >
-              <div>
-                <strong>{doc.name}</strong>
-                <div className="txMeta">
-                  {doc.count} transactions • {doc.uploadedAt}
-                </div>
-              </div>
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Imported</th>
+                <th>Status</th>
+              </tr>
+            </thead>
 
-              <span className="badge">Imported</span>
-            </div>
-          ))
+            <tbody>
+              {documents.map((d) => (
+                <tr key={d.id}>
+                  <td>
+                    <strong>{d.name}</strong>
+
+                    <div
+                      style={{
+                        color: "#64748b",
+                        fontSize: 13,
+                      }}
+                    >
+                      {new Date(
+                        d.created_at
+                      ).toLocaleString("en-IN")}
+                    </div>
+                  </td>
+
+                  <td>
+                    {d.imported} transactions
+                  </td>
+
+                  <td
+                    style={{
+                      color: "#16a34a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Imported
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
