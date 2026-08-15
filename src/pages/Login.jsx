@@ -20,8 +20,12 @@ export default function Login({ onLogin }) {
       let user;
 
       if (isRegister) {
+        if (!name.trim()) {
+          throw new Error("Please enter your name");
+        }
+
         if (pin.length !== 4) {
-          throw new Error("PIN must be 4 digits");
+          throw new Error("PIN must be exactly 4 digits");
         }
 
         user = await register(name, email, pin);
@@ -50,6 +54,7 @@ export default function Login({ onLogin }) {
         <form onSubmit={handleSubmit}>
           {isRegister && (
             <input
+              type="text"
               placeholder="Full Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -76,7 +81,9 @@ export default function Login({ onLogin }) {
             required
           />
 
-          {error && <div className="loginError">{error}</div>}
+          {error && (
+            <div className="loginError">{error}</div>
+          )}
 
           <button type="submit" disabled={loading}>
             {loading
@@ -91,14 +98,24 @@ export default function Login({ onLogin }) {
           {isRegister ? (
             <>
               Already have an account?{" "}
-              <span onClick={() => setIsRegister(false)}>
+              <span
+                onClick={() => {
+                  setIsRegister(false);
+                  setError("");
+                }}
+              >
                 Sign In
               </span>
             </>
           ) : (
             <>
               New to Ledgerly?{" "}
-              <span onClick={() => setIsRegister(true)}>
+              <span
+                onClick={() => {
+                  setIsRegister(true);
+                  setError("");
+                }}
+              >
                 Create Account
               </span>
             </>
