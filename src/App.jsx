@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  getTransactions,
-  getAccounts,
   getSession,
   logout as apiLogout,
+  getTransactions,
+  getAccounts,
 } from "./services/api";
 
 import Sidebar from "./components/Sidebar";
@@ -29,7 +29,7 @@ import Settings from "./pages/Settings";
 
 const STORAGE_KEY = "ledgerly_state";
 
-const initialState = {
+const INITIAL_STATE = {
   transactions: [],
   accounts: [],
   budgets: [],
@@ -46,7 +46,6 @@ const initialState = {
     "Dining",
     "Transportation",
     "Utilities",
-    "Subscriptions",
     "Insurance",
     "Health",
     "Entertainment",
@@ -64,87 +63,88 @@ const initialState = {
   },
 };
 
-function loadState() {
+function loadLocal() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? { ...initialState, ...JSON.parse(saved) } : initialState;
+    return saved
+      ? { ...INITIAL_STATE, ...JSON.parse(saved) }
+      : INITIAL_STATE;
   } catch {
-    return initialState;
+    return INITIAL_STATE;
   }
 }
 
 export default function App() {
   const [session, setSession] = useState(getSession());
   const [page, setPage] = useState("Dashboard");
-  const [state, setState] = useState(loadState);
+  const [state, setState] = useState(loadLocal);
 
-  const updateState = (updates) =>
-    setState((prev) => ({ ...prev, ...updates }));
+  const updateState = (obj) =>
+    setState((prev) => ({ ...prev, ...obj }));
 
-  useEffect(() => {
+  async function refreshCloud() {
     if (!session) return;
 
-    async function syncCloud() {
-      try {
-        const [transactions, accounts] = await Promise.all([
-          getTransactions(),
-          getAccounts(),
-        ]);
+    try {
+      const [transactions, accounts] = await Promise.all([
+        getTransactions(),
+        getAccounts(),
+      ]);
 
-        setState((prev) => ({
-          ...prev,
-          transactions,
-          accounts,
-        }));
-      } catch (err) {
-        console.error("Cloud sync failed", err);
-      }
+      setState((prev) => ({
+        ...prev,
+        transactions,
+        accounts,
+      }));
+    } catch (e) {
+      console.error(e);
     }
+  }
 
-    syncCloud();
+  useEffect(() => {
+    refreshCloud();
   }, [session]);
 
   useEffect(() => {
     if (session) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(state)
+      );
     }
   }, [state, session]);
 
-  const transactions = useMemo(
-    () => state.transactions.filter((t) => !t.transfer),
-    [state.transactions]
-  );
-
   const income = useMemo(
     () =>
-      transactions
+      state.transactions
         .filter((t) => t.type === "income")
         .reduce((s, t) => s + Number(t.amount), 0),
-    [transactions]
+    [state.transactions]
   );
 
   const spending = useMemo(
     () =>
-      transactions
+      state.transactions
         .filter((t) => t.type === "expense")
         .reduce((s, t) => s + Number(t.amount), 0),
-    [transactions]
+    [state.transactions]
   );
 
   const savings = income - spending;
-  const savingsRate = income ? Math.round((savings / income) * 100) : 0;
 
-  const assets = state.investments.assets.reduce(
-    (s, a) => s + Number(a.value || 0),
-    0
-  );
+  const savingsRate = income
+    ? Math.round((savings / income) * 100)
+    : 0;
 
-  const liabilities = state.investments.liabilities.reduce(
-    (s, l) => s + Number(l.value || 0),
-    0
-  );
-
-  const netWorth = assets - liabilities;
+  const netWorth =
+    state.investments.assets.reduce(
+      (s, a) => s + Number(a.value || 0),
+      0
+    ) -
+    state.investments.liabilities.reduce(
+      (s, l) => s + Number(l.value || 0),
+      0
+    );
 
   function logout() {
     apiLogout();
@@ -154,7 +154,7 @@ export default function App() {
 
   function resetAllData() {
     localStorage.removeItem(STORAGE_KEY);
-    setState(initialState);
+    setState(INITIAL_STATE);
   }
 
   if (!session) {
@@ -164,7 +164,7 @@ export default function App() {
   const pages = {
     Dashboard: (
       <Dashboard
-        transactions={transactions}
+        transactions={state.transactions}
         income={income}
         spending={spending}
         savings={savings}
@@ -177,19 +177,24 @@ export default function App() {
 
     Transactions: (
       <Transactions
-        transactions={transactions}
-        setTransactions={(v) => updateState({ transactions: v })}
+        transactions={state.transactions}
+        setTransactions={(v) =>
+          updateState({ transactions: v })
+        }
         categories={state.categories}
         accounts={state.accounts}
-        tags={state.tags}
+        refreshCloud={refreshCloud}
       />
     ),
 
     Accounts: (
       <Accounts
         accounts={state.accounts}
-        setAccounts={(v) => updateState({ accounts: v })}
+        setAccounts={(v) =>
+          updateState({ accounts: v })
+        }
         transactions={state.transactions}
+        refreshCloud={refreshCloud}
       />
     ),
 
@@ -197,16 +202,22 @@ export default function App() {
       <Transfers
         accounts={state.accounts}
         transactions={state.transactions}
-        setTransactions={(v) => updateState({ transactions: v })}
+        setTransactions={(v) =>
+          updateState({ transactions: v })
+        }
       />
     ),
 
     Recurring: (
       <Recurring
         recurring={state.recurring}
-        setRecurring={(v) => updateState({ recurring: v })}
+        setRecurring={(v) =>
+          updateState({ recurring: v })
+        }
         transactions={state.transactions}
-        setTransactions={(v) => updateState({ transactions: v })}
+        setTransactions={(v) =>
+          updateState({ transactions: v })
+        }
         categories={state.categories}
         accounts={state.accounts}
       />
@@ -215,7 +226,9 @@ export default function App() {
     Subscriptions: (
       <Subscriptions
         subscriptions={state.subscriptions}
-        setSubscriptions={(v) => updateState({ subscriptions: v })}
+        setSubscriptions={(v) =>
+          updateState({ subscriptions: v })
+        }
         categories={state.categories}
         accounts={state.accounts}
       />
@@ -224,8 +237,10 @@ export default function App() {
     Budgets: (
       <Budgets
         budgets={state.budgets}
-        setBudgets={(v) => updateState({ budgets: v })}
-        transactions={transactions}
+        setBudgets={(v) =>
+          updateState({ budgets: v })
+        }
+        transactions={state.transactions}
         categories={state.categories}
       />
     ),
@@ -233,39 +248,56 @@ export default function App() {
     Goals: (
       <Goals
         goals={state.goals}
-        setGoals={(v) => updateState({ goals: v })}
+        setGoals={(v) =>
+          updateState({ goals: v })
+        }
       />
     ),
 
     Investments: (
       <Investments
         investments={state.investments}
-        setInvestments={(v) => updateState({ investments: v })}
+        setInvestments={(v) =>
+          updateState({ investments: v })
+        }
       />
     ),
 
     Portfolio: (
       <Portfolio
         portfolio={state.portfolio}
-        setPortfolio={(v) => updateState({ portfolio: v })}
+        setPortfolio={(v) =>
+          updateState({ portfolio: v })
+        }
       />
     ),
 
     Retirement: <Retirement />,
 
-    Reports: <Reports transactions={transactions} />,
+    Reports: (
+      <Reports transactions={state.transactions} />
+    ),
 
     Documents: (
       <Documents
         documents={state.documents}
-        setDocuments={(v) => updateState({ documents: v })}
+        setDocuments={(v) =>
+          updateState({ documents: v })
+        }
+        transactions={state.transactions}
+        setTransactions={(v) =>
+          updateState({ transactions: v })
+        }
+        refreshCloud={refreshCloud}
       />
     ),
 
     Rules: (
       <Rules
         rules={state.rules}
-        setRules={(v) => updateState({ rules: v })}
+        setRules={(v) =>
+          updateState({ rules: v })
+        }
         categories={state.categories}
       />
     ),
@@ -295,7 +327,11 @@ export default function App() {
       <Sidebar page={page} setPage={setPage} />
 
       <div className="mainArea">
-        <Header page={page} user={session} onLogout={logout} />
+        <Header
+          page={page}
+          user={session}
+          onLogout={logout}
+        />
 
         <main className="pageContent">
           {pages[page] || pages.Dashboard}
