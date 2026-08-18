@@ -108,6 +108,36 @@ export async function addTransaction(tx) {
   return data;
 }
 
+export async function deleteTransaction(id) {
+  if (!id) {
+    throw new Error("Transaction ID is required");
+  }
+
+  const res = await fetch(
+    `${API}/api/transactions/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      headers: {
+        "x-user-id": getUserId(),
+      },
+    }
+  );
+
+  let data = {};
+
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || "Unable to delete transaction");
+  }
+
+  return data;
+}
+
 /* =========================
    CSV IMPORT
 ========================= */
