@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   addTransaction,
+  deleteTransaction,
   getTransactions,
 } from "../services/api";
 
@@ -10,46 +11,19 @@ export default function Transactions({
   categories,
   accounts,
 }) {
+  const [saving, setSaving] = useState(false);
+
   const [form, setForm] = useState({
     merchant: "",
     amount: "",
     type: "expense",
     category: "Shopping",
-    account: accounts?.[0]?.name || "Cash",
+    account: accounts[0]?.name || "Cash",
     note: "",
     date: new Date().toISOString().slice(0, 10),
   });
 
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    if (!form.merchant || !form.amount) return;
-
-    setSaving(true);
-
-    await addTransaction({
-      ...form,
-      amount: Number(form.amount),
-      transfer: false,
-    });
-
-    const latest = await getTransactions();
-    setTransactions(latest);
-
-    setForm({
-      merchant: "",
-      amount: "",
-      type: "expense",
-      category: "Shopping",
-      account: accounts?.[0]?.name || "Cash",
-      note: "",
-      date: new Date().toISOString().slice(0, 10),
-    });
-
-    setSaving(false);
-  }
-
-  const totalIncome = useMemo(
+  const income = useMemo(
     () =>
       transactions
         .filter((t) => t.type === "income")
@@ -57,7 +31,7 @@ export default function Transactions({
     [transactions]
   );
 
-  const totalExpense = useMemo(
+  const expense = useMemo(
     () =>
       transactions
         .filter((t) => t.type === "expense")
@@ -65,22 +39,67 @@ export default function Transactions({
     [transactions]
   );
 
+  async function refresh() {
+    const latest = await getTransactions();
+    setTransactions(latest);
+  }
+
+  async function save() {
+    if (!form.merchant || !form.amount) {
+      alert("Merchant and Amount are required");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await addTransaction({
+        ...form,
+        amount: Number(form.amount),
+        transfer: false,
+      });
+
+      await refresh();
+
+      setForm({
+        merchant: "",
+        amount: "",
+        type: "expense",
+        category: "Shopping",
+        account: accounts[0]?.name || "Cash",
+        note: "",
+        date: new Date().toISOString().slice(0, 10),
+      });
+    } catch (err) {
+      alert(err.message);
+    }
+
+    setSaving(false);
+  }
+
+  async function remove(id) {
+    if (!confirm("Delete this transaction?")) return;
+
+    await deleteTransaction(id);
+    await refresh();
+  }
+
   return (
     <div className="dashboard">
       <div className="cards">
         <div className="card">
-          <small>Total Income</small>
-          <h2>₹{totalIncome.toLocaleString()}</h2>
+          <small>Income</small>
+          <h2>₹{income.toLocaleString()}</h2>
         </div>
 
         <div className="card">
-          <small>Total Expense</small>
-          <h2>₹{totalExpense.toLocaleString()}</h2>
+          <small>Expense</small>
+          <h2>₹{expense.toLocaleString()}</h2>
         </div>
 
         <div className="card">
-          <small>Transactions</small>
-          <h2>{transactions.length}</h2>
+          <small>Balance</small>
+          <h2>₹{(income - expense).toLocaleString()}</h2>
         </div>
       </div>
 
@@ -155,7 +174,9 @@ export default function Transactions({
               <option>Cash</option>
             ) : (
               accounts.map((a) => (
-                <option key={a.id}>{a.name}</option>
+                <option key={a.id} value={a.name}>
+                  {a.name}
+                </option>
               ))
             )}
           </select>
@@ -173,8 +194,8 @@ export default function Transactions({
         </div>
 
         <textarea
-          rows="3"
-          placeholder="Note"
+          rows={3}
+          placeholder="Notes"
           value={form.note}
           onChange={(e) =>
             setForm({
@@ -192,49 +213,58 @@ export default function Transactions({
       <div className="panel">
         <h2>Transaction History</h2>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Merchant</th>
-              <th>Category</th>
-              <th>Account</th>
-              <th align="right">Amount</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {transactions.map((t) => (
-              <tr key={t.id}>
-                <td>{t.date}</td>
-                <td>{t.merchant}</td>
-                <td>{t.category}</td>
-                <td>{t.account}</td>
-                <td
-                  style={{
-                    color:
-                      t.type === "income"
-                        ? "#16a34a"
-                        : "#dc2626",
-                    textAlign: "right",
-                    fontWeight: 600,
-                  }}
-                >
-                  {t.type === "income" ? "+" : "-"}₹
-                  {Number(t.amount).toLocaleString()}
-                </td>
-              </tr>
-            ))}
-
-            {transactions.length === 0 && (
+        {transactions.length === 0 ? (
+          <p>No transactions available.</p>
+        ) : (
+          <table>
+            <thead>
               <tr>
-                <td colSpan="5">
-                  <center>No transactions found</center>
-                </td>
+                <th>Date</th>
+                <th>Merchant</th>
+                <th>Category</th>
+                <th>Account</th>
+                <th>Amount</th>
+                <th></th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {transactions.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.date}</td>
+                  <td>
+                    <strong>{t.merchant}</strong>
+                    {t.note && (
+                      <div className="txMeta">{t.note}</div>
+                    )}
+                  </td>
+                  <td>{t.category}</td>
+                  <td>{t.account}</td>
+                  <td
+                    style={{
+                      color:
+                        t.type === "income"
+                          ? "#16a34a"
+                          : "#dc2626",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {t.type === "income" ? "+" : "-"}₹
+                    {Number(t.amount).toLocaleString()}
+                  </td>
+                  <td>
+                    <button
+                      className="delete"
+                      onClick={() => remove(t.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
